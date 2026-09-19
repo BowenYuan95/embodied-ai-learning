@@ -116,7 +116,7 @@ Current development environment:
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/embodied-ai-learning.git
+git clone https://github.com/BowenY95/embodied-ai-learning.git
 cd embodied-ai-learning
 ```
 

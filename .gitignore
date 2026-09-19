@@ -53,3 +53,11 @@ lerobot_cache/
 # OS
 .DS_Store
 Thumbs.db
+
+.env
+.env.*
+!.env.example
+credentials/
+secrets/
+*.pem
+*.key

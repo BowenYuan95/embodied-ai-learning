@@ -55,7 +55,7 @@ The initial task is `PickCube-v1`. Later stages will introduce a planar pushing 
 | HDF5 trajectory pipeline | Complete | Observation, action, reward, timestamp, and metadata schema |
 | Observation semantics | Complete | Current 42-dimensional state vector decomposed and documented |
 | LeRobot v3 conversion | In progress | Converter skeleton exists; interface correction, execution, and read-back validation pending |
-| Trajectory replay | In progress | Replay and action/state temporal alignment still to be verified |
+| Trajectory replay | Source replay verified | All 50 observations/rewards match; no task success; time-limit truncation. Synthetic timestamps still need correction (50 Hz vs actual 20 Hz). |
 | Policy training | Planned | State-based BC is the first baseline |
 
 ## Current Dataset

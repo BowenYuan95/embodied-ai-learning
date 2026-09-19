@@ -118,6 +118,17 @@ resampling.
 
 ## Demonstrations and Evaluation
 
+- Action replay executes stored actions from a reconstructed initial state;
+  matching saved pre-action observations and rewards provides evidence that
+  the source trajectory was reproduced. A seed alone is not a universal
+  reproducibility guarantee across versions/backends.
+- `terminated` and `truncated` describe episode boundaries, not task success.
+  Inspect task-specific `info["success"]` and distinguish any-step success
+  from final-step success.
+- The current standardization notebook synthesizes 0.02-second timestamps,
+  whereas verified replay uses 20 Hz control (0.05 seconds). Stored timestamp
+  regularity does not establish physical timing correctness.
+
 - A random rollout is useful for testing serialization and conversion.
 - It is not an expert demonstration unless task success and trajectory quality
   are verified.

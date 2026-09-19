@@ -45,15 +45,16 @@ upgraded.
 
 ### In Progress or Missing Evidence
 
-- [ ] Replay the source trajectory and classify it as success or failure.
+- [x] Replay the source trajectory: all 50 observations/rewards match exactly;
+  no step succeeds and step 50 is truncated at the time limit.
 - [ ] Verify whether the source contains `T` observations or `T+1` states for
   `T` actions, and document the observation/action pairing time.
 - [ ] Write the complete 8-dimensional action specification.
 - [ ] Preserve or explicitly diagnose source timestamps instead of using only
   the first interval to infer FPS.
-- [ ] Correct the converter for the installed LeRobot v3 interface. The current
-  skeleton supplies `task_index`; it must be tested against the expected task
-  representation, commonly a string `task` field in `add_frame()`.
+- [ ] Validate the converter against the installed LeRobot v3 interface. Code
+  inspection confirms that `add_frame()` already supplies a string `task`
+  field; runtime compatibility is still unverified.
 - [ ] Execute conversion successfully.
 - [ ] Load the converted dataset in a fresh process.
 - [ ] Validate episode count, frame count, FPS, feature shapes, and first/last
@@ -97,9 +98,11 @@ Lesson 2 can be marked complete only when all checks pass:
 
 ## Immediate Next Steps
 
-1. Fix the converter task field and add explicit length/alignment assertions.
-2. Replay `random_episode_standard.h5`; record success/failure and sequence
-   convention.
+1. Validate the converter task field at runtime and add explicit
+   length/alignment assertions.
+2. Complete temporal-contract documentation: replay confirms pre-action
+   observations, but the terminal observation is absent and synthetic
+   timestamps incorrectly imply 50 Hz instead of the verified 20 Hz.
 3. Run the conversion and capture the exact environment/package versions.
 4. Reload the output in a fresh process and validate metadata plus boundary
    frames.
@@ -107,6 +110,26 @@ Lesson 2 can be marked complete only when all checks pass:
 6. Update this file with commands run, outputs observed, and remaining gaps.
 
 ## Session Log
+
+### 2026-09-19 — Source trajectory replay
+
+- Inspected both the collector and the standardization notebook. The notebook
+  constructs timestamps with `np.arange(T) * 0.02`; these are not measured times.
+- Default Python lacks h5py; used the existing `embodied` conda environment
+  (ManiSkill 3.0.1) for HDF5 inspection and replay.
+- Ran an inline replay, then independently ran
+  `conda run --no-capture-output -n embodied python scripts/replay_pickcube_episode.py`.
+  Both exited successfully: 50 steps, maximum observation and reward errors
+  0.0, success_any=False, success_final=False, terminated=False,
+  truncated=True at step 50. Seed 0 and controller were reconstructed from
+  collector code; complete initial simulator state is not stored in the file.
+- Runtime control frequency is 20 Hz, conflicting with synthetic 50 Hz
+  timestamps. Source files were not modified; timestamp repair remains pending.
+- Inspected installed PickCube evaluate(): success requires object placement
+  within the goal threshold AND a static robot; grasp alone is insufficient.
+- CUDA/NVML was unavailable in this session; runtime reported CPU rendering
+  fallback. No rendered video or renewed GPU validation is claimed.
+- Source replay gate now passes. Lesson 2 remains in progress.
 
 ### 2026-09-19
 
@@ -118,3 +141,17 @@ Lesson 2 can be marked complete only when all checks pass:
 - Audited Lesson 2 against execution-based acceptance criteria.
 - Result: Lesson 2 remains in progress pending replay, conversion execution,
   read-back validation, temporal checks, and the reusable inspector.
+
+### 2026-09-19 — Progress and curriculum review
+
+- Read the progress record, roadmap, concept notes, README, and converter.
+- Ran `git status --short`, `git diff --stat`, and
+  `rg --files scripts notebooks datasets environment`; the working tree was
+  clean before this documentation correction, and the reusable inspector was
+  absent. Confirmed absence with `test -f scripts/inspect_robot_dataset.py`.
+- Corrected stale task-field guidance: the converter already uses a string
+  `task` field, not `task_index`.
+- Static inspection found FPS inferred from the first timestamp interval and
+  frame iteration over observations without explicit length/alignment checks.
+- No simulation, conversion, or read-back tests were run in this review.
+  Lesson 2 remains in progress; the recorded 60–70% estimate is unchanged.

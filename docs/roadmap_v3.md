@@ -544,11 +544,11 @@ ManiSkill 仿真数据 + VR/遥操作数据 + 真实机器人 LeRobot 数据 →
 Lesson 2 已完成环境验证、PickCube rollout、HDF5 pipeline 与 42 维 observation
 语义拆解。当前待完成的验收项：
 
-1. trajectory replay 与成功/失败确认；
+1. trajectory replay 已验证：50 步观测与奖励完全匹配，全程未成功，第 50 步时间截断；
 2. `T` / `T+1` 及 observation-action 对齐验证；
 3. LeRobot v3 转换脚本修正并实际运行；
 4. 转换后数据集的独立回读与完整性检查；
 5. `inspect_robot_dataset.py`；
-6. 8 维 action specification 与 source timestamp 诊断。
+6. 8 维 action specification 与 source timestamp 诊断（已发现合成时间戳为 50 Hz，实际控制为 20 Hz，待修正）。
 
 完成上述闭环后，再进入 **Lesson 3：SO(3)、SE(3) 与坐标变换**。

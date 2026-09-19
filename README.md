@@ -9,6 +9,17 @@ The project follows two principles:
 
 > **Current status:** Lesson 2 is in progress. The ManiSkill-to-HDF5 pipeline is working; LeRobot v3 conversion and read-back validation are the next milestones.
 
+## Project Context
+
+- [Learning roadmap](docs/roadmap_v3.md)
+- [Current verified progress](notes/progress.md)
+- [Concepts and engineering decisions](notes/concepts.md)
+- [Guidance for AI coding agents](AGENTS.md)
+
+The repository files above are the durable source of truth across ChatGPT,
+Codex, IDE, and CLI sessions. Git history is used instead of date-suffixed
+progress documents.
+
 ## Project Goals
 
 - Understand the complete loop from observation and robot state to policy action and environment transition.
@@ -43,7 +54,7 @@ The initial task is `PickCube-v1`. Later stages will introduce a planar pushing 
 | ManiSkill rollout | Complete | `PickCube-v1` rollout tested |
 | HDF5 trajectory pipeline | Complete | Observation, action, reward, timestamp, and metadata schema |
 | Observation semantics | Complete | Current 42-dimensional state vector decomposed and documented |
-| LeRobot v3 conversion | In progress | Converter implemented; execution and read-back validation pending |
+| LeRobot v3 conversion | In progress | Converter skeleton exists; interface correction, execution, and read-back validation pending |
 | Trajectory replay | In progress | Replay and action/state temporal alignment still to be verified |
 | Policy training | Planned | State-based BC is the first baseline |
 
@@ -81,7 +92,10 @@ semantics, unit, control frequency, and controller mode
 ```text
 embodied-ai-learning/
 ├── README.md
+├── AGENTS.md
 ├── .gitignore
+├── docs/
+│   └── roadmap_v3.md
 ├── environment/
 │   └── setup_linux.sh
 ├── notebooks/
@@ -93,12 +107,17 @@ embodied-ai-learning/
 │   ├── convert_maniskill_to_lerobot.py
 │   └── inspect_robot_dataset.py
 ├── notes/
-│   └── progress_19_9.md
+│   ├── progress.md
+│   └── concepts.md
 └── datasets/
     └── README.md
 ```
 
 Large datasets, videos, model checkpoints, caches, and credentials are intentionally excluded from Git.
+
+Real credentials should remain outside the repository. `.gitignore` prevents
+Git tracking but is not a file-access security boundary; use operating-system
+permissions and sandbox configuration for actual isolation.
 
 ## Environment
 
@@ -116,7 +135,7 @@ Current development environment:
 Clone the repository:
 
 ```bash
-git clone https://github.com/BowenY95/embodied-ai-learning.git
+git clone https://github.com/YOUR_USERNAME/embodied-ai-learning.git
 cd embodied-ai-learning
 ```
 

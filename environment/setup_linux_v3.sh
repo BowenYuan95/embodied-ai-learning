@@ -152,7 +152,6 @@ print("pandas: OK")
 
 PY
 
-
 echo "======================================"
 echo " Embodied AI V3 Setup Completed"
 echo "======================================"

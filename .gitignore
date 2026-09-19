@@ -1,1 +1,55 @@
 .idea/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+conda-env/
+
+# IDE
+.idea/
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Robot datasets
+datasets/*
+!datasets/README.md
+!datasets/.gitkeep
+*.h5
+*.hdf5
+*.parquet
+*.mp4
+
+# Models and training outputs
+outputs/
+checkpoints/
+wandb/
+runs/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# LeRobot / Hugging Face cache
+.cache/
+huggingface/
+lerobot_cache/
+
+# OS
+.DS_Store
+Thumbs.db

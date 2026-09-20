@@ -1,0 +1,43 @@
+===== Dataset Quality Summary =====
+
+Integrity:
+    PASS
+
+Temporal:
+    PASS
+    Mean dt: 0.020000 s
+    Nominal FPS: 50.00
+    Timestamp source: synthetic
+    NOTE: timing consistency does not verify real acquisition timing.
+
+Action Range:
+    PASS
+    All actions within [-1, 1].
+
+Action Smoothness:
+    Mean |Δa|: 0.6723
+    P95  |Δa|: 1.6108
+    Max  |Δa|: 1.8916
+    WARNING: large frame-to-frame action changes.
+
+Randomness Diagnostic:
+    Action mean: 0.0636 (random baseline: 0.0000)
+    Action std:  0.5863 (random baseline: 0.5774)
+    Mean |Δa|:  0.6723 (random baseline: 0.6667)
+    Random-like score: 3/3
+    WARNING: strongly consistent with independent Uniform(-1,1) random sampling.
+
+Reward:
+    Return: 1.710907
+    Mean:   0.034218
+    Max:    0.081897
+    Final:  0.025431
+    INFO: no explicit success label is available.
+    Success should not be inferred from reward alone without the environment's task definition.
+
+Recommended Use:
+    YES: pipeline / parser / converter testing.
+    NO: not suitable as an expert imitation-learning demonstration.
+
+Overall:
+    STRUCTURALLY VALID, BUT RANDOM-LIKE TRAJECTORY.

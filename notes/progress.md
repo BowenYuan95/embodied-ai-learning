@@ -20,10 +20,10 @@ a stronger marker without recording the command or read-back that justifies it.
 
 ## Current Position
 
-Lesson 2 is in its closing phase. The lesson is defined as one continuous
-主线: **从仿真轨迹走到一个能够训练的最小行为克隆模型**. It is not a lesson
-about building more engineering environment, and it does not yet evaluate a
-policy in closed loop.
+Lesson 2 is in its closing phase. The lesson is one continuous thread: **from a
+simulation trajectory to a minimal, trainable behavior-cloning model**. It is
+not a lesson about building more engineering environment, and it does not yet
+evaluate a policy in closed loop.
 
 | Sub-step | Topic | Status |
 |---|---|---|
@@ -40,7 +40,7 @@ policy in closed loop.
 | 2.8.4 | Loss：`L = MSE(â_t, a_t)` | Complete |
 | 2.8.5 | 反向传播与参数更新：`zero_grad → forward → loss → backward → step` | Complete |
 | 2.8.6 | 完整训练循环：batch 循环、epoch 循环、Adam、Loss 曲线、100 epochs | **Complete `[verified]`** |
-| 2.8.7 | 训练集与验证集 | **Next — 进行中** |
+| 2.8.7 | 训练集与验证集 | **Next — 下一步** |
 | 2.8.8 | 策略部署与闭环执行 | Not started |
 
 **Current stopping point: 2.8.6 完成，2.8.7 「训练集与验证集」为下一步。**

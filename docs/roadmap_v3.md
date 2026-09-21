@@ -537,18 +537,36 @@ ManiSkill 仿真数据 + VR/遥操作数据 + 真实机器人 LeRobot 数据 →
 
 # 当前进度
 
+详细状态与证据分级见 `notes/progress.md`（单一进度记录）。本段只保留头条状态。
+
 - Lesson 0：完成
 - Lesson 1：完成
-- Lesson 2：进行中（约 60–70%）
+- Lesson 2：进行中（约 75–85%）。日常跟踪停在 **2.8.1「读取单帧样本」**：
+  数据采集、转换与质量验证已完成，正从「数据工程」进入「模型如何读取数据」，
+  尚未开始训练。
+- Lesson 3：未开始
 
-Lesson 2 已完成环境验证、PickCube rollout、HDF5 pipeline 与 42 维 observation
-语义拆解。当前待完成的验收项：
+## Lesson 2 已完成
 
-1. trajectory replay 已验证：50 步观测与奖励完全匹配，全程未成功，第 50 步时间截断；
-2. `T` / `T+1` 及 observation-action 对齐验证；
-3. LeRobot v3 转换脚本修正并实际运行；
-4. 转换后数据集的独立回读与完整性检查；
-5. `inspect_robot_dataset.py`；
-6. 8 维 action specification 与 source timestamp 诊断（已发现合成时间戳为 50 Hz，实际控制为 20 Hz，待修正）。
+- ManiSkill `PickCube-v1` rollout 与 HDF5 trajectory 读取；
+- 42 维 observation 拆解、8 维 action 分析、`(obs[t], action[t])` 时间对齐；
+- trajectory replay：50 步观测与奖励完全匹配，全程未成功，第 50 步时间截断；
+- ManiSkill HDF5 → LeRobot v3 转换，产物位于 `datasets/lerobot/pickcube/`；
+- 转换前后帧数、FPS、observation、action 一致性验证与数据质量报告；
+- 结论：当前轨迹结构有效，但动作呈随机分布，不能作为专家示范。
+
+## Lesson 2 待完成
+
+1. **环境重建（当前阻塞项）**：本机 `embodied` conda 环境为空，
+   `torch` / `lerobot` / `mani_skill` 均未安装，2.8.1 目前无法在本机复现；
+2. 2.8.1 在本机重跑 `dataset[0]`，留下可复现证据；
+3. 2.8.2 `DataLoader`：`[42]` / `[8]` → `[B,42]` / `[B,8]`；
+4. 2.8.3 policy input/output；2.8.4 时间窗口 `[B,T,D]`；
+5. `inspect_robot_dataset.py`（本课验收项，目前缺失）；
+6. 8 维 action specification 的剩余字段：实际控制频率、坐标系、夹爪开合约定；
+7. **20 Hz / 50 Hz 时间契约矛盾**：`meta/info.json` 声明 50 FPS，
+   但实测控制频率为 20 Hz，合成时间戳使时间轴压缩 2.5 倍，
+   必须在 2.8.4 之前解决；
+8. 2.9 生成成功的 expert demonstration。
 
 完成上述闭环后，再进入 **Lesson 3：SO(3)、SE(3) 与坐标变换**。

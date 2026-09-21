@@ -20,7 +20,7 @@ log "Installing Ubuntu system dependencies"
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential ca-certificates cmake curl ffmpeg git git-lfs \
-    libegl1 libgl1 libglib2.0-0 libusb-1.0-0 pkg-config \
+    libegl1 libgl1 libglib2.0-0 libusb-1.0-0 libvulkan1 vulkan-tools pkg-config \
     udev unzip wget
 git lfs install --skip-repo
 
@@ -48,6 +48,8 @@ else
 fi
 # shellcheck disable=SC1091
 source "$CONDA_BASE/etc/profile.d/conda.sh"
+"$CONDA_BASE/bin/conda" init bash
+"$CONDA_BASE/bin/conda" config --set auto_activate_base false
 
 log "Creating conda environment: $ENV_NAME"
 if conda env list | awk '{print $1}' | grep -Fxq "$ENV_NAME"; then

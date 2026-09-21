@@ -94,24 +94,38 @@ embodied-ai-learning/
 ├── README.md
 ├── AGENTS.md
 ├── .gitignore
+├── archive/                     frozen scripts, see archive/README.md
+│   ├── lesson_0_1/
+│   ├── lesson_2_superseded/
+│   └── offroadmap/
+├── datasets/
+│   └── README.md
 ├── docs/
 │   └── roadmap_v3.md
 ├── environment/
-│   └── setup_linux.sh
+│   ├── setup_linux.sh
+│   └── setup_linux_v3.sh
 ├── notebooks/
 │   ├── 00_environment_check.ipynb
-│   └── 01_inspect_pickcube_dataset.ipynb
-├── scripts/
-│   ├── smoke_test_maniskill.py
-│   ├── collect_pickcube_random.py
-│   ├── convert_maniskill_to_lerobot.py
-│   └── inspect_robot_dataset.py
+│   ├── 01_inspect_pickcube_dataset.ipynb
+│   ├── Generate_PickCube_LeRobot_Dataset.ipynb
+│   └── inspect_lerobot_dataset.ipynb
 ├── notes/
-│   ├── progress.md
-│   └── concepts.md
-└── datasets/
-    └── README.md
+│   ├── concepts.md
+│   └── progress.md
+└── scripts/
+    ├── run_pipeline.py          conversion entry point
+    ├── pipeline/                load, validate, convert, report, manifest
+    ├── collect_pickcube_random_rollout.py
+    ├── validate_maniskill_rollout.py
+    ├── compare_random_datasets.py
+    ├── dataset_report.py
+    └── replay_pickcube_episode.py
 ```
+
+Scripts superseded by a later stage live under `archive/` rather than being
+deleted, so that the evidence trail in `notes/progress.md` stays readable.
+Those files are frozen and not maintained.
 
 Large datasets, videos, model checkpoints, caches, and credentials are intentionally excluded from Git.
 
@@ -149,15 +163,18 @@ conda activate embodied
 Verify the environment:
 
 ```bash
-python scripts/smoke_test_maniskill.py
+python archive/lesson_0_1/smoke_test_maniskill.py
 ```
+
+This probe is frozen under `archive/`, but it remains the smallest end-to-end
+check that ManiSkill can create and step `PickCube-v1`.
 
 ## Basic Workflow
 
 ### 1. Collect a ManiSkill rollout
 
 ```bash
-python scripts/collect_pickcube_random.py
+python scripts/collect_pickcube_random_rollout.py
 ```
 
 The current collector is intended for pipeline validation. A random rollout is not treated as a successful expert demonstration unless task success is verified.
@@ -181,9 +198,15 @@ The inspection process checks:
 
 ### 3. Convert to LeRobot v3
 
+Run from the repository root, because the pipeline imports `scripts.pipeline`:
+
 ```bash
-python scripts/convert_maniskill_to_lerobot.py
+python scripts/run_pipeline.py
 ```
+
+The pipeline loads the HDF5 episode, validates it, converts it, re-loads the
+result, generates a quality report, and writes a conversion manifest. Pass
+`--overwrite` to replace an existing output dataset.
 
 This conversion path is currently under validation. Completion requires successfully loading the generated dataset again and checking its episode count, frame count, features, FPS, and first/last frames.
 

@@ -77,22 +77,78 @@ ManiSkill 仿真数据 + VR/遥操作数据 + 真实机器人 LeRobot 数据 →
 
 ---
 
-## Lesson 2 — Robot Dataset：LeRobot × ManiSkill × Sim/VR/Real【进行中】
+## Lesson 2 — 从机器人轨迹到可训练策略【收尾阶段】
 
-### 理论
-- Hugging Face Dataset / LeRobot Dataset
-- episode / frame / trajectory / timestamp
-- observation.state / observation.images / action
-- sampling frequency 与 temporal alignment
-- Dataset Schema ≠ Robot Semantics
+本课主线是一条连续的工程链路：**轨迹采集 → 数据集 → DataLoader → Policy →
+Loss → 训练 → Rollout**。本课结束时应当能独立解释并实现这条链路上的每一步。
+本课的目标是**把训练管线跑通**，因此不发散到工程环境，也不以策略性能为验收标准。
 
-### ManiSkill Lab
-- 下载/生成 PickCube demonstration
-- 阅读 ManiSkill HDF5 trajectory
-- replay trajectory
-- 比较 `T` 个 actions 与状态序列
-- 将 ManiSkill trajectory 转换为 LeRobot v3 数据格式
-- 写 `inspect_robot_dataset.py`
+### 2.1 ManiSkill 环境与轨迹【已完成】
+- 创建 `PickCube-v1`
+- 理解 observation、action、reward、done
+- 运行一个完整 episode
+- 理解控制循环：`o_t → a_t → o_{t+1}`
+
+### 2.2 机器人状态与动作空间【已完成】
+- 解析 42 维 `observation.state`
+- 理解关节位置、关节速度、TCP 位姿、物体位姿、目标位置
+- 解析 8 维 action：7 维关节控制 + 1 维夹爪控制
+- 理解 `pd_joint_delta_pos`
+
+### 2.3 时间对齐【已完成】
+- 理解 frame、timestamp、episode
+- 确认训练配对是 `(o_t, a_t)`，而不是 `(o_t, a_{t+1})`
+- 理解执行 `a_t` 之后得到 `o_{t+1}`
+
+### 2.4 原始轨迹存储【已完成】
+- 查看 ManiSkill HDF5
+- 理解 episode 分组
+- 检查 observation / action 长度
+- 区分原始仿真数据与训练数据格式
+
+### 2.5 转换为 LeRobot Dataset【已完成】
+- 将 ManiSkill 轨迹转换为 LeRobot 格式，生成 `data/`、`meta/`
+- 生成任务描述与 episode 元数据
+- 理解数据格式转换的目的：Dataset Schema ≠ Robot Semantics
+
+### 2.6 数据验证与质量检查【已完成】
+- 检查 shape、dtype、NaN 与数值范围
+- 检查 episode、frame、timestamp 连续性
+- 绘制 action、reward 等曲线
+- 区分「格式正确」与「数据有效」
+
+当前结论：数据结构有效，但只有 1 个 episode、50 帧，而且动作近似随机，
+不是专家演示。
+
+### 2.7 PyTorch Dataset 与 DataLoader【已完成】
+- `dataset[index]`：单个样本
+- `DataLoader`：组成 batch
+- 理解 tensor、shape 与 batch 维度
+- 理解 `shuffle=True/False`
+- 区分随机采样与时间顺序
+
+### 2.8 最小行为克隆模型【进行中】
+- **2.8.1 数据读取【已完成】** — `observation.state [42]`，`action [8]`
+- **2.8.2 Batch【已完成】** — `states [8,42]`，`actions [8,8]`
+- **2.8.3 MLP Policy【已完成】** — `R^42 → R^128 → R^128 → R^8`
+- **2.8.4 Loss【已完成】** — `L = MSE(â_t, a_t)`
+- **2.8.5 反向传播与参数更新【已完成】** — `zero_grad()` → forward → loss →
+  `backward()` → `optimizer.step()`；梯度、学习率、权重更新
+- **2.8.6 完整训练循环【已完成】** — batch 循环、epoch 循环、Adam、Loss 曲线、
+  100 epochs
+- **2.8.7 训练集与验证集【下一步】**
+  - 为什么只看训练 Loss 不够
+  - train / validation split
+  - 泛化与记忆
+  - underfitting 与 overfitting
+  - 为什么随机动作数据无法训练出有效策略
+- **2.8.8 策略部署与闭环执行【尚未开始】**
+  - `环境状态 → policy(state) → 预测动作 → env.step(action) → 新状态`
+  - `model.train()` 与 `model.eval()`
+  - `torch.no_grad()`
+  - 单步预测与闭环 rollout
+  - 仿真安全与动作裁剪
+  - 判断策略是否真的完成任务
 
 ### Sim / VR / Real 数据统一
 建立统一检查模板：
@@ -109,44 +165,112 @@ ManiSkill 仿真数据 + VR/遥操作数据 + 真实机器人 LeRobot 数据 →
 - VR controller pose 如何映射成 robot action？
 - sim-only privileged labels 应该如何使用而不造成真实部署依赖？
 
+### 本课验收条件
+- 一条从仿真轨迹到训练产物的完整链路可复现；
+- 能解释 `(o_t, a_t)` 配对与 `T` / `T+1` 约定；
+- 能实现并解释 `Dataset` → `DataLoader` → MLP → Loss → 训练循环；
+- 能说明为什么低训练 Loss 不等于有效策略；
+- 策略至少完成一次闭环执行并给出任务结果（2.8.8）。
+
 ---
 
-## Lesson 3 — SO(3)、SE(3) 与坐标变换
+## Lesson 3 — 模仿学习与行为克隆【当前起点】
 
-### 理论
+Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解：
+**为什么模型即使训练 Loss 很低，真实执行时仍可能失败？**
+
+入口实验直接沿用 2.8.7：用训练集与验证集实验引出拟合、泛化、分布偏移与专家数据。
+
+### 3.1 模仿学习问题定义
+- 专家演示是什么
+- 状态、观察、动作与策略
+- 专家策略 `π_E` 与学习策略 `π_θ`
+- 目标：`π_θ(a_t | o_t) ≈ π_E(a_t | o_t)`
+
+### 3.2 Behavior Cloning
+- 行为克隆本质上是监督学习：`D = {(o_t, a_t)}_{t=1..N}`，
+  `θ* = argmin_θ Σ_t L(π_θ(o_t), a_t)`
+- 连续动作为什么使用 MSE，离散动作为什么使用交叉熵
+- 单峰动作预测的问题
+- 专家数据质量与覆盖范围
+
+### 3.3 泛化与过拟合
+- 训练集、验证集、测试集
+- 如何按 episode 划分，为什么不能随意按 frame 划分
+- 数据泄漏
+- 模型容量与数据规模
+- 训练 Loss 与验证 Loss 曲线
+
+**特别注意**：以后有多个 episode 时，应优先按 episode 划分，而不是把同一条
+轨迹的相邻帧随机分到训练集和验证集。相邻帧高度相关，frame 级划分会造成
+实质性泄漏。
+
+### 3.4 Distribution Shift
+- 训练时模型看到专家到达的状态：`o_t ~ d_{π_E}`
+- 执行时模型看到自己产生的状态：`o_t ~ d_{π_θ}`
+- 一个小动作误差可能把机器人带到训练集中没有出现过的状态，后续误差不断累积
+- 这是行为克隆的核心问题之一
+
+### 3.5 DAgger
+`专家数据训练 → 学习策略执行 → 收集失败附近的新状态 → 专家提供正确动作 →
+加入数据集重新训练`
+
+### 3.6 单帧策略与历史策略
+- 单帧 MLP：`a_t = π(o_t)`
+- 历史策略：`a_t = π(o_{t-k:t})`
+- 比较 MLP、RNN/LSTM、Transformer
+- 部分可观测问题：为什么机器人有时需要历史信息
+
+### 3.7 Action Chunking
+- 不只预测一个动作，而是预测未来一段动作：`â_{t:t+H} = π(o_t)`
+- 连接到 ACT、Diffusion Policy、VLA 中的动作序列输出、π₀/π₀.₅ 的 action chunk
+
+### 3.8 多模态策略过渡
+- 把当前的 `state → action` 扩展为 `(image, language, state) → action`
+- 为后面的 Transformer、VLA 与 π₀.₅ 做连接，但不立刻进入大型工程部署
+
+### 3.9 专家数据采集
+- 结合 SO-101：遥操作与示教
+- 成功 / 失败 episode
+- 摄像头与机器人状态同步
+- 数据频率与延迟
+- 任务变化与数据覆盖
+- 从仿真数据过渡到真机数据
+
+---
+
+## Lesson 4 — SO(3)、SE(3)、FK/IK 与 Retargeting
+
+> 原计划中「SO(3)/SE(3) 与坐标变换」独立成课，现与 FK/IK/Retargeting 合并为
+> 一课：坐标表示与变换、正逆运动学、Jacobian 与 VR retargeting 是一条连贯的
+> 几何主线。若希望重新拆成两课，在此处调整。
+
+### 4.1 SO(3) 与 SE(3)
 - Rotation matrix / quaternion / axis-angle
 - Homogeneous transformation
 - SO(3) / SE(3)
 - frame composition / inverse transform
 
-### ManiSkill Lab
-- 读取 robot base、TCP、camera、object pose
-- 完成 base ↔ world ↔ camera ↔ EE 坐标转换
-- 可视化一个 object pose 在不同 frame 中的表示
-
-### Sim / Real 数据问题
-- 为什么 sim/VR/real 合并前必须统一 coordinate convention？
-- camera extrinsic calibration 如何影响 policy 数据？
-
----
-
-## Lesson 4 — FK、IK、Jacobian 与 Retargeting
-
-### 理论
+### 4.2 FK、IK 与 Jacobian
 - Forward Kinematics
 - Inverse Kinematics
 - Jacobian
 - singularity 基础
-- Human/VR pose → robot action retargeting
+
+### 4.3 Human / VR Pose → Robot Action Retargeting
+- 人类手部轨迹为什么不能直接作为 robot joint trajectory
+- retargeting 之后应该记录 human action 还是 robot executed action
 
 ### ManiSkill Lab
-- 从 joint state 计算 EE pose
-- 给定 EE target 求 IK
+- 读取 robot base、TCP、camera、object pose
+- 完成 base ↔ world ↔ camera ↔ EE 坐标转换
+- 可视化一个 object pose 在不同 frame 中的表示
+- 从 joint state 计算 EE pose；给定 EE target 求 IK
 - 用 VR-controller-style 6DoF target 驱动 ManiSkill robot
 
-### Sim / VR / Real 数据问题
-- Human hand trajectory 为什么不能直接作为 robot joint trajectory？
-- retargeting 之后应该记录 human action 还是 robot executed action？
+### Sim / Real 数据问题
+- 为什么 sim/VR/real 合并前必须统一 coordinate convention？
+- camera extrinsic calibration 如何影响 policy 数据？
 
 ---
 
@@ -541,32 +665,46 @@ ManiSkill 仿真数据 + VR/遥操作数据 + 真实机器人 LeRobot 数据 →
 
 - Lesson 0：完成
 - Lesson 1：完成
-- Lesson 2：进行中（约 75–85%）。日常跟踪停在 **2.8.1「读取单帧样本」**：
-  数据采集、转换与质量验证已完成，正从「数据工程」进入「模型如何读取数据」，
-  尚未开始训练。
-- Lesson 3：未开始
+- Lesson 2：**收尾阶段（约 90%）**。2.1–2.8.6 已完成，日常跟踪停在
+  **2.8.7「训练集与验证集」**：数据采集、转换、质量验证、Dataset/DataLoader
+  与最小 BC 训练循环均已跑通，下一步用训练集/验证集实验引出泛化与分布偏移。
+- Lesson 3：**当前起点** — 模仿学习与行为克隆（3.1–3.9）。
+- Lesson 4：未开始 — SO(3)/SE(3)、FK/IK 与 Retargeting（原独立成课，现合并）。
 
 ## Lesson 2 已完成
 
-- ManiSkill `PickCube-v1` rollout 与 HDF5 trajectory 读取；
-- 42 维 observation 拆解、8 维 action 分析、`(obs[t], action[t])` 时间对齐；
-- trajectory replay：50 步观测与奖励完全匹配，全程未成功，第 50 步时间截断；
-- ManiSkill HDF5 → LeRobot v3 转换，产物位于 `datasets/lerobot/pickcube/`；
-- 转换前后帧数、FPS、observation、action 一致性验证与数据质量报告；
-- 结论：当前轨迹结构有效，但动作呈随机分布，不能作为专家示范。
+- ManiSkill `PickCube-v1` rollout 与完整 `o_t → a_t → o_{t+1}` 控制循环；
+- 42 维 observation 拆解、8 维 action 分析（7 关节 + 1 夹爪）、`pd_joint_delta_pos`；
+- `(o_t, a_t)` 时间对齐确认，以及 `T` / `T+1` 约定；
+- ManiSkill HDF5 原始轨迹存储与 episode 分组；
+- ManiSkill HDF5 → LeRobot Dataset 转换，产物位于 `datasets/lerobot/pickcube/`；
+- 数据验证与质量检查：shape / dtype / 范围 / 连续性，action 与 reward 曲线；
+- PyTorch `Dataset` / `DataLoader`：单样本 `[42]` / `[8]` → batch `[8,42]` / `[8,8]`；
+- 最小 BC 模型：MLP `42 → 128 → 128 → 8`、`MSE`、反向传播与参数更新；
+- 完整训练循环：100 epochs、Adam、Loss 曲线，训练 Loss
+  `0.346221 → 0.105965`（`[verified]`，已独立复现；未训练基线 `0.371752`）。
+- 结论：训练管线跑通；但数据结构虽有效，只有 1 个 episode、50 帧且动作近似
+  随机，不能作为专家示范，也无法据此声称策略有效。
 
 ## Lesson 2 待完成
 
-1. **环境重建（当前阻塞项）**：本机 `embodied` conda 环境为空，
-   `torch` / `lerobot` / `mani_skill` 均未安装，2.8.1 目前无法在本机复现；
-2. 2.8.1 在本机重跑 `dataset[0]`，留下可复现证据；
-3. 2.8.2 `DataLoader`：`[42]` / `[8]` → `[B,42]` / `[B,8]`；
-4. 2.8.3 policy input/output；2.8.4 时间窗口 `[B,T,D]`；
-5. `inspect_robot_dataset.py`（本课验收项，目前缺失）；
-6. 8 维 action specification 的剩余字段：实际控制频率、坐标系、夹爪开合约定；
-7. **20 Hz / 50 Hz 时间契约矛盾**：`meta/info.json` 声明 50 FPS，
-   但实测控制频率为 20 Hz，合成时间戳使时间轴压缩 2.5 倍，
-   必须在 2.8.4 之前解决；
-8. 2.9 生成成功的 expert demonstration。
+1. **2.8.7 训练集与验证集**：为什么只看训练 Loss 不够、train/validation split、
+   泛化与记忆、underfitting 与 overfitting、为什么随机动作数据无法训练出有效
+   策略；单 episode 下 frame 级划分会泄漏，需明确记录该限制；
+2. **2.8.8 策略部署与闭环执行**：`env.step(policy(state))`、`train()` / `eval()`、
+   `torch.no_grad()`、单步预测与闭环 rollout、动作裁剪与仿真安全、
+   判断策略是否真的完成任务。
 
-完成上述闭环后，再进入 **Lesson 3：SO(3)、SE(3) 与坐标变换**。
+以下为记录备查、当前不阻塞的遗留项：
+
+3. `inspect_robot_dataset.py`（本课验收项，目前缺失）；
+4. 8 维 action specification 的剩余字段：实际控制频率、坐标系、夹爪开合约定；
+   以及 2.2 的 `pd_joint_delta_pos` 与 manifest 记录的 `PDJointPosController`
+   之间的 delta / absolute 语义差异；
+5. **20 Hz / 50 Hz 时间契约矛盾**：控制频率实测 20 Hz（`control_timestep=0.05`），
+   而合成时间戳为 `0.02 s`，`converter.py:estimate_fps` 从时间戳反推出
+   `info.json` 的 50 FPS，使时间轴压缩 2.5 倍。修复后在时间窗口工作之前生效；
+6. 42 维 observation 的逐字段命名与可部署性（privileged state）标注。
+
+完成 2.8.7 与 2.8.8 后，Lesson 2 结束，进入
+**Lesson 3：模仿学习与行为克隆**，入口实验即 2.8.7 的训练集/验证集结果。

@@ -783,32 +783,51 @@ The separate Lesson 2 gate is still short of one item:
 
 ## Immediate Next Steps
 
-Lesson 2 is closed. The next work is **data and theory**, not repair of the
-existing training code.
+**Lesson 2 is closed and Lesson 3 is the current phase.** The learner has also
+abandoned the two Lesson 2 follow-ups that were previously queued here — growing
+the expert dataset to 30–50 episodes and re-training the BC baseline, and building
+`scripts/inspect_robot_dataset.py`. No further work should be based on either;
+they are recorded as abandoned decisions, not as pending tasks.
 
-1. **Scale the expert dataset (30–50 episodes).** The current model is a failure
-   baseline because four training episodes cannot support generalization. Re-run
-   `scripts/generate_expert_demo.py` over a wider seed range, keep only
-   successful episodes (the collector already excludes failures), and keep the
-   same canonical `T+1`/`T` schema. Re-train with the **same episode-level
-   split** so the comparison against the current baseline is valid. Consider
-   converting with `scripts/convert_expert_actions_to_delta.py` if the data is to
-   be mixed with the delta fixture.
-2. **Lesson 3 — imitation learning and Behavior Cloning.** Enter from the real
-   result rather than a toy example: `3.1` problem definition, `3.2` BC as
-   supervised learning, `3.3` generalization/overfitting (now with measured
-   curves and a baseline), `3.4` distribution shift (now with `|z| = 13.2` on
-   held-out states and 199/200 clipped rollout steps). `notebooks/3.1` exists and
-   executes; its frame-level leakage cell should be re-pointed at the expert
-   episodes, where the ratio is `8.8×`–`13.7×`, instead of the random fixture
-   where it is `1.04×`.
-3. **Open gate item:** build `scripts/inspect_robot_dataset.py` (reusable
-   full-frame validation) or explicitly waive it in `AGENTS.md`.
-4. **Deferred, still open:** the 20 Hz versus declared 50 FPS temporal contract;
-   per-field observation deployability labels; the `2.9` notebook numbering
-   versus the `2.1`–`2.8.8` roadmap sequence.
+Lesson 3 — imitation learning and Behavior Cloning — is entered from the **measured**
+Lesson 2 result rather than a toy example. The evidence already in the repository
+(recorded in the 2.8.7 / 2.8.8 sections above) provides the entry points:
+
+| Lesson 3 topic | The evidence that already exists |
+|---|---|
+| 3.1 problem definition | `π_θ(a_t \| o_t) ≈ π_E(a_t \| o_t)`, with the trained artefact as `π_θ` |
+| 3.2 BC as supervised learning | MSE objective, and its failure mode: the model landed worse than the mean-action baseline (`0.2350` vs `0.1421`) |
+| 3.3 generalization and overfitting | measured curves: train `1.3136 → 0.006` versus validation stuck at `0.75–0.77`; best epoch 3; episode-level split |
+| 3.4 distribution shift | held-out states reach `\|z\| = 13.21`; raw actions out of bounds on only `0.2%` of held-out states but `99.5%` of closed-loop steps are clipped |
+| 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
+| 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
+| 3.7 action chunking | not started; connects to ACT, Diffusion Policy, and `π0` action chunks |
+| 3.8 multimodal policy transition | not started |
+| 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
+| 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
+
+`notebooks/3.1_imitation_learning_intro.ipynb` already exists and executes. Its
+frame-level leakage cell still points at the random fixture, where the measured
+ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expert
+episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-22 — Lesson 2 closed; its follow-ups abandoned; Lesson 3 is the current phase
+
+The learner confirmed that the Lesson 2 thread is finished and that the old
+follow-up plan should not be pursued: neither growing the expert dataset to 30–50
+episodes and re-training the BC baseline, nor building
+`scripts/inspect_robot_dataset.py`. Both are now recorded as **abandoned
+decisions** rather than pending tasks. The Lesson 2 evidence and the two gate
+tables stay in this file unchanged as the historical record; the BC gate is 8/8
+met and the one unmet Lesson 2 gate item is explicitly waived, not deferred.
+
+`Immediate Next Steps` was rewritten to Lesson 3 only, with a table that maps each
+Lesson 3 topic to the Lesson 2 evidence that now serves as its entry point
+(supervised-learning objective and its baseline failure, measured overfitting
+curves, and the quantified distribution shift). No code, dataset, notebook, or
+checkpoint was modified; no experiment was run.
 
 ### 2026-09-22 — Teaching Protocol added to `AGENTS.md`
 

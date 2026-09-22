@@ -217,9 +217,13 @@ Interpretation, and the reason 2.8.7 is next:
 - [x] Action smoothness separates the two data regimes. `[verified]` — recomputed
   from the payloads: random fixture `mean |Δa| = 0.6723`; expert per-episode
   `0.0078 / 0.0074 / 0.0080 / 0.0077 / 0.0077` (mean `0.0077`).
-- [x] Notebook exists, is corrected, and was re-executed. `[verified]` —
-  `notebooks/2.9_expert_demonstrations.ipynb`, 7 code cells, all executed, zero
-  error outputs, kernel `embodied`.
+- [x] Notebook exists, is corrected, and is executed. `[verified]` —
+  `notebooks/2.9_expert_demonstrations.ipynb`, 23 cells (14 markdown / 9 code),
+  all code cells executed with zero error outputs, kernel `embodied`. Section
+  `2.9.9` adds a self-contained contract check: it asserts the `T+1`/`T` schema
+  for all five episodes and replays `episode_000000`, reporting
+  `initial observation error 0.0`, `max post-step error 0.0`, `max reward error
+  0.0`, `replay success True`.
 
 - [x] Re-expressed the expert actions in the fixture's semantics. `[verified]` —
   `scripts/convert_expert_actions_to_delta.py` writes
@@ -718,6 +722,132 @@ Deferred, not blocking: the temporal contract, the missing
 
 ## Session Log
 
+### 2026-09-22 — Acyclicity correction: DAG is not the same as a dependency graph
+
+The learner corrected the scope of the rejected design: **`DAG` here means
+directed acyclic**, and it is not interchangeable with `dependency graph`, which
+is a more general relation that may contain cycles. That distinction matters,
+because my first pass had replaced the wording with "partial order", which carries
+the same acyclicity assumption under another name — the same failed premise.
+
+Why the acyclic assumption is wrong for this project: real execution returns to
+already-completed steps. Retry after a failure, recovery, backtracking, and
+iteration are all re-entry, so "what may run next" is a function of the current
+task state rather than of a fixed one-directional order that is computed once.
+
+Changes:
+
+- `notes/concepts.md`, `Task Representation`: added the explicit requirement that
+  the representation must tolerate **cycles and re-entry**; the previous
+  "partial-order" phrasing was replaced with "prerequisite/task-state
+  representation", and prerequisite relations are now described as relations over
+  steps rather than a fixed ordering.
+- `notes/concepts.md`, `Study Priority Stack` (P1 row): "partial order" replaced
+  with "prerequisite relations that admit cycles and re-entry".
+- `docs/roadmap_v3.md`: the two explicit acyclic claims were replaced —
+  line 24 `dependency DAG` → "task state（prerequisite 关系，允许 retry、回退与重入）",
+  and the Lesson 14 theory bullet `sequential plan、partial order 与 dependency DAG`
+  → "sequential plan、prerequisite 关系与 task state（需支持 cycle、retry 与回退）".
+- `README.md` was **not** changed: it contains no acyclic claim. The wording
+  "dependency graphs", "task graph", and "dependency-aware guidance" was kept
+  deliberately, because a dependency graph is a general structure and the learner's
+  earlier work is described in those terms.
+- No `DAG`, `有向无环`, `acyclic`, `topological`, or `partial order` wording remains
+  in the repository documentation. (`### 3.5 DAgger` is the imitation-learning
+  algorithm, not a graph.)
+
+Evidence: `grep -rni "dag\|有向无环\|acyclic\|partial order\|偏序" --include="*.md"`
+returns only the DAgger heading and these session-log references.
+
+### 2026-09-22 — `concepts.md` extended with the research-direction synthesis
+
+The learner supplied a 2018–2025 embodied-agent landscape review plus a gap
+analysis against their current progress, and asked for the research-facing part
+to be merged into `notes/concepts.md`. The dependency representation they had
+previously sketched was rejected as a failed design; the follow-up entry below
+records the exact scope of that rejection (the directed **acyclic** form, not
+dependency relations in general).
+
+Added to `notes/concepts.md` (English, matching the file's convention):
+
+- `Research Direction: Task Intelligence for Embodied Agents` — the gap a reactive
+  VLA leaves (why / where in the task / what remains / failure / human need), the
+  layered target architecture, the positioning statement, a reading map of which
+  system to study per layer, and scope discipline (ROS 2, SLAM, low-level control,
+  large-scale RL, pixel world models are substrate, not study goals).
+- `Action Policy Families` — BC, action chunking, diffusion, flow matching; why MSE
+  regression averages multimodal actions; why offline loss is not the metric.
+- `VLA Anatomy` — the token flow through a VLM to an action head, discrete action
+  tokens versus continuous generation, and action representation as a first-class
+  problem (tied to this repository's own absolute-versus-delta evidence).
+- `Task World Model` — task-level `p(z_{t+1} | z_t, a_t)`, counterfactual ranking,
+  and an explicit instruction not to start from video generation.
+- `Planning, Recovery, and Intervention` — the `act / guide / ask / wait / recover /
+  escalate` vocabulary, failure localization, and reliability-centred metrics.
+- `Sim-to-Real: Randomization Versus Adaptation` — randomization versus online
+  latent adaptation, bounded residual adaptation plus a safety layer, and
+  post-deployment drift.
+- `Study Priority Stack` — the P0/P1/P2 gap table and the immediate order, anchored
+  to finishing the closed loop first.
+
+Also edited in the same file: the `Task State and Dependency Graph` section became
+`Task State` with the graph framing removed; `dependency-aware`/`dependency graph`
+wording was replaced throughout; `Embodied Memory` gained the procedural-plus-
+episodic emphasis and a forgetting note; `Current Strategic Decision` now names the
+task-intelligence layer as the target and lists the out-of-scope substrate.
+
+Left alone at the time: the `dependency DAG` / `dependency graph` /
+`dependency-aware` wording in `README.md` and `docs/roadmap_v3.md`. The follow-up
+entry below resolves it — the explicit acyclic (`DAG`) claims were replaced, and the
+generic dependency wording was kept.
+
+### 2026-09-22 — `2.8.6` planner construction verified by an actual run (parallel work)
+
+`notebooks/2.8_check_data.ipynb` gained three executed cells while this session
+was running (54 → 55 cells, `execution_count` 35/36/37). They were not written by
+this session and were left untouched; what they prove is recorded here.
+
+- Import: `from mani_skill.examples.motionplanning.panda.motionplanner import
+  PandaArmMotionPlanningSolver` → `PandaArmMotionPlanningSolver imported!`
+- Environment assertion, printed by the cell itself: Python executable
+  `/home/bowenyuan/miniforge3/envs/embodied310/bin/python`, Python `3.10.21`,
+  NumPy `1.26.4`, with
+  `assert "embodied310" in sys.executable` guarding the claim.
+- Construction: `PandaArmMotionPlanningSolver(real_env, debug=False, vis=False,
+  base_pose=robot_base_pose)` → `Planner created!`, initialization time
+  `0.0046 s`, no segfault.
+
+`[verified]` This is an independent, in-notebook confirmation of the "Motion
+planner segfault: root cause corrected" entry: planner construction needs the
+NumPy 1.x environment (`embodied310`) and works there. The same requirement was
+already exercised twice today by `scripts/generate_expert_demo.py` runs, which
+constructed the planner five times per run and produced 5/5 successful episodes
+each time.
+
+Per the learner's instruction, this is **verified and must not be re-run** merely
+to re-prove it: the two independent lines of evidence above are sufficient, and
+repeating a planner run costs minutes for no new information.
+
+### 2026-09-22 — `2.9.9` transition-contract section found in the working tree; prose translated
+
+`notebooks/2.9_expert_demonstrations.ipynb` gained three cells while this session
+was running (13 markdown / 7 code → 14 markdown / 9 code): a new section
+`2.9.9 — Validate the expert transition contract` with two executed code cells.
+The cells were not written by this session and were left functionally untouched.
+
+- The new section checks, in the notebook itself, that every episode stores
+  `T + 1` observations for `T` actions, and then replays `episode_000000`:
+  recorded output is `initial observation error 0.0`, `max post-step error 0.0`,
+  `max reward error 0.0`, `replay success True`, with the pairing printed as
+  `observations[t] --actions[t]--> observations[t+1]`.
+- This independently reproduces the schema and alignment findings recorded above
+  for the regenerated file, so the two lines of evidence agree.
+- Only the new markdown cell was edited: it was English, and the project rule is
+  that notebook prose is Chinese with English terms. Its code cells, outputs, and
+  `execution_count` values are unchanged.
+- The 2.9 evidence bullet was updated from "7 code cells" to the current
+  14/9 split.
+
 ### 2026-09-22 — Loader shuffling rule settled; 2.6 renamed to `inspection_loader`
 
 Follow-up on the `shuffle` mismatch found during the translation review. The
@@ -760,7 +890,7 @@ meant maintaining a second copy of every notebook cell.
   nothing unique was lost, because every code cell it printed also exists in the
   notebooks.
 - Stale `scripts/__pycache__/build_lesson_notebooks.cpython-312.pyc` removed.
-- References updated: `README.md` (repository tree, the "supported data path"
+- References updated: `../README.md` (repository tree, the "supported data path"
   paragraph, and the notebook-source-of-truth paragraph), `archive/README.md`
   (the retained-tools list plus an explicit deleted-not-archived note). New
   scripts `generate_expert_demo.py` and `convert_expert_actions_to_delta.py` were
@@ -774,7 +904,7 @@ meant maintaining a second copy of every notebook cell.
 The learner asked that notebook notes be written in Chinese except for technical
 terms, and that this be kept from now on. Applied to all 13 notebooks.
 
-- `AGENTS.md` gained a "Notebook documentation language" subsection: markdown
+- `../AGENTS.md` gained a "Notebook documentation language" subsection: markdown
   prose in Chinese, technical terms in English, code/identifiers/paths/numbers
   untouched, structure preserved, code cells and outputs untouched, and `*.md`
   repository docs plus code comments stay English.
@@ -1106,7 +1236,7 @@ replay verification.
 - `2.8 Check data.ipynb` was left untouched, as requested. It is a scratch
   notebook in active use; it interleaves environment experiments with a search
   for ManiSkill's motion planners and is not part of the curated sequence.
-- Updated `README.md`: repository tree, status line, Current Progress table,
+- Updated `../README.md`: repository tree, status line, Current Progress table,
   roadmap checkboxes, and the inspection-notebook command.
 - No dataset, script, or training artifact was modified by this reorganization.
 - No dataset payload was rewritten and no conversion was re-run.

@@ -21,7 +21,7 @@
 1. **Task intelligence 是研究终点，action 是实现方式。**
 2. **机械臂是统一实验载体，而不是职业定位。** ManiSkill、LeRobot 与后续真机用于验证 perception–reasoning–action 闭环。
 3. **VLA 与 world model 是主干能力。** 不以从零训练最大模型为目标，而以理解、复现、适配、微调和任务级增强为目标。
-4. **保留个人差异化。** 将既有的第一视角感知、任务分段、dependency DAG、注意力与自适应辅助，转化为 task memory、task state、intervention policy 与 human-agent collaboration。
+4. **保留个人差异化。** 将既有的第一视角感知、任务分段、task state（prerequisite 关系，允许 retry、回退与重入）、注意力与自适应辅助，转化为 task memory、task state、intervention policy 与 human-agent collaboration。
 
 ---
 
@@ -513,7 +513,7 @@ interaction 和 AVAR 研究最直接的连接点。目标不是把任务图作�
 ### 理论
 - task decomposition、temporal segmentation、change-point detection
 - action、skill、subgoal、task phase 与完整 task 的层级关系
-- sequential plan、partial order 与 dependency DAG
+- sequential plan、prerequisite 关系与 task state（需支持 cycle、retry 与回退）
 - procedural knowledge 与可执行 task representation
 
 ### ManiSkill / Video Lab

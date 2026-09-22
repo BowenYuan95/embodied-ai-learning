@@ -144,7 +144,7 @@ embodied-ai-learning/
     └── replay_pickcube_episode.py           acceptance-gate replay evidence
 ```
 
-`scripts/pipeline/` is the supported data path: it is the only place that converts a
+`scripts/pipeline` is the supported data path: it is the only place that converts a
 trajectory into a trainable dataset, and it is the only place a quality report is
 generated. Every other script either produces source data
 (`collect_pickcube_random_rollout.py`), produces expert demonstrations and their
@@ -175,7 +175,7 @@ the NumPy 1.x C API and jumps to address `0x0`. The notebook inspects the action
 and delegates planning to `scripts/generate_expert_demo.py` in the `embodied310`
 environment. See `notes/progress.md` for the isolation evidence.
 
-Scripts superseded by a later stage live under `archive/` rather than being
+Scripts superseded by a later stage live under `archive` rather than being
 deleted, so that the evidence trail in `notes/progress.md` stays readable.
 Those files are frozen and not maintained.
 
@@ -232,7 +232,7 @@ Verify the environment:
 python archive/lesson_0_1/smoke_test_maniskill.py
 ```
 
-This probe is frozen under `archive/`, but it remains the smallest end-to-end
+This probe is frozen under `archive`, but it remains the smallest end-to-end
 check that ManiSkill can create and step `PickCube-v1`.
 
 ## Basic Workflow

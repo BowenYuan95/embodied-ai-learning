@@ -38,7 +38,7 @@ This project distinguishes two related levels:
 
 Predicting the next image is not the only valid world-model objective. For the
 long-horizon direction of this project, task-state prediction is equally
-important and is closer to dependency-aware procedural reasoning.
+important and is closer to task-state-aware procedural reasoning.
 
 ### Controller
 
@@ -64,34 +64,67 @@ Reach → Grasp → Lift → Transport → Place
 ```
 
 Each segment may carry a boundary, semantic label, precondition, effect,
-confidence, and failure/recovery status. Sequential lists are sufficient only
-when order is fixed; optional, parallel, or prerequisite-constrained steps
-require a graph or partial-order representation.
+confidence, and failure/recovery status. A flat sequential list is sufficient
+only when the order is fixed; steps that are optional, parallel, or constrained
+by prerequisites need an explicit prerequisite/task-state representation instead.
 
-### Task State and Dependency Graph
+That representation must tolerate **cycles and re-entry**: retry after failure,
+recovery, backtracking to an earlier step, and iteration all return to steps that
+were already completed. A strictly one-directional progression cannot express
+them, so "what may run next" has to be recomputed from the current task state
+rather than derived once from a fixed order. Prerequisite relations are therefore
+relations over steps, not an ordering that is fixed in advance.
 
-The project uses explicit task state as a verifiable interface between
-perception, planning, and action. A node may be:
+### Task State
+
+Task state answers *where the execution actually is*, as opposed to what the task
+structure allows. Each step carries a state such as:
 
 ```text
 Locked | Available | Active | Completed | Failed
 ```
 
-The graph is not assumed to be fully hand-authored forever. Early experiments
-may use simulator events or manual annotations; later work should infer
-segments, dependencies, and state transitions from demonstrations and video.
+Task state is inferred, not read off: it must be estimated from observations,
+simulator events, or interaction history, and it stays uncertain. The two
+distinctions worth keeping separate:
+
+- **expected** task progress (what the structure says should happen next) versus
+  **observed** progress (what the evidence supports);
+- **observation** versus **state** — not seeing a cup is not evidence that the
+  cup does not exist.
+
+Concrete cases an agent must handle: a step was performed but not observed; a step
+was observed but failed; a step was skipped and must be re-established; an
+alternative path became available. Early experiments may use simulator events or
+manual annotation; later work should infer state transitions from demonstrations
+and video.
 
 ### Embodied Memory
 
 - **Working memory** stores current observations and short temporal context.
 - **Episodic memory** stores prior trajectories, failures, and recoveries.
 - **Semantic memory** stores object, scene, and task knowledge.
-- **Procedural memory** stores reusable skills, task graphs, and execution rules.
+- **Procedural memory** stores reusable skills, execution procedures, and task
+  knowledge.
 
 Object permanence and re-identification are memory problems as well as
 perception problems: when an object leaves the camera view, the agent should
 retain identity, last-seen state, and uncertainty rather than silently treating
 the object as absent.
+
+For long-horizon assistance, **procedural and episodic memory** are the two that
+matter most: procedural memory describes how the task is normally executed, while
+episodic memory provides the evidence used to update task state.
+
+```text
+procedural memory → task structure
+episodic memory   → current task state
+task state        → next action / guidance / question
+```
+
+Memory also needs a forgetting policy: an agent that remembers everything cannot
+retrieve reliably, and an agent that keeps only the last few frames cannot track
+a long task.
 
 ### Task-Conditioned VLA
 
@@ -320,6 +353,241 @@ Action smoothness (`mean |da|`) is the complementary indicator: expert
 trajectories step by small correlated increments (measured `~0.008`), random
 rollouts jump by nearly independent draws (measured `~0.67`).
 
+## Research Direction: Task Intelligence for Embodied Agents
+
+### The gap this project targets
+
+The current mainstream is a **reactive VLA**: a multimodal foundation model maps
+`(image, language, robot state)` to an action or action chunk. That is a powerful
+semantic prior, but by construction it does not represent:
+
+- why the current action is appropriate;
+- where in the task the execution currently is;
+- what has already been completed and what remains;
+- what to do when a step fails, is skipped, or is performed off-camera;
+- whether the human needs help, and whether helping is wanted at all.
+
+Those are **task-level** questions, not perception or actuation questions, and the
+empirical record shows they are not solved automatically by scale: long-horizon
+household benchmarks expose brittle skill hand-offs, and current LLM-based
+embodied planners still fail often at task tracking, coordination, and error
+recovery.
+
+The layer between a foundation model and an action is therefore the project's
+target: **explicit task state, memory, prediction, and recovery**, with the VLA as
+a component rather than the whole system.
+
+```text
+foundation perception/semantics
+  + persistent task state
+  + episodic / procedural memory
+  + task-level world model
+  + planner
+  + learned skill policy
+  + adaptive controller
+  + independent safety monitor
+```
+
+The interfaces may themselves become end-to-end learned, but the functional
+decomposition is expected to survive because the time scales differ
+fundamentally: semantic planning at seconds, action chunks at tens of hertz,
+stabilization at hundreds of hertz.
+
+### Positioning
+
+Working description of the research direction:
+
+> Human-centered embodied agents that learn, reason about, and assist long-horizon
+> tasks through multimodal observation and interactive guidance.
+
+That positioning is deliberately not "a better VLA" and not "a VR guidance
+system". The scarce combination it relies on is: computer vision, XR/egocentric
+sensing, human-state and attention modeling, task representation, and user
+studies — plus the dataset-semantics discipline this repository enforces.
+
+### Reference points
+
+Reading map, not a survey: each row is the system to study for one layer. Numbers
+reported in surveys are not independently verified here and should be re-checked
+at the source before being quoted.
+
+| Layer | Systems to read | What it teaches |
+|---|---|---|
+| Action distribution | Diffusion Policy | Generative modeling of an action horizon; multimodal actions |
+| Action chunking | ACT | Predicting `[a_t … a_{t+H}]`; temporal abstraction |
+| Flow matching | `π0`, `π0.5` | VLM backbone + action expert; continuous action chunks |
+| Discrete action tokens | RT-2, OpenVLA | Action as tokens inside a VLM; cross-task semantic transfer |
+| Generalist cross-embodiment | Octo, RDT-1B | Heterogeneous robot data; unified action space; scaling |
+| World model | DayDreamer, 3D-VLA | Latent dynamics and future-state prediction as a policy ingredient |
+| Human–robot / multi-agent | Habitat 3.0, PARTNR | Social environments; where planning and coordination actually fail |
+| Data engines and infrastructure | ProcTHOR, RoboCasa, Habitat, Isaac Lab, MuJoCo | Scene/task generation, high-throughput control, contact physics |
+
+### Scope discipline
+
+Deliberately **not** the study target right now: ROS 2, SLAM, low-level control
+theory, large-scale RL, and deep simulator engineering. They are substrate, not
+research contribution, and the existing substrate (ManiSkill plus the mechanical
+arm) is sufficient for the experiments in this phase. Adopt each only when a
+concrete experiment demands it.
+
+## Action Policy Families
+
+Four families matter, and they are cumulative rather than competing:
+
+| Family | What it models | Why it exists | Main failure mode |
+|---|---|---|---|
+| Single-step BC | `a_t = π_θ(o_t)` with MSE | Simple, stable supervised learning | Averages multimodal actions; compounding error in closed loop |
+| Action chunking | `[a_t … a_{t+H}] = π_θ(o_t)` | Fewer decisions, temporally consistent behavior | Chunk boundaries; re-planning latency |
+| Diffusion policy | `p(A_t \| o_t)` by iterative denoising | Represents genuinely multimodal action distributions | Sampling cost; schedule sensitivity |
+| Flow matching | A velocity field whose ODE transports noise to an action chunk | Same multimodal goal with a simpler training objective; used by `π0`-style action experts | Newer, less standardized tooling |
+
+Two conclusions that shape later reading:
+
+- **Plain MSE regression is the wrong default for manipulation actions.** When
+  several distinct actions are reasonable from one observation, regression
+  produces their average, which may be executable by none of them.
+- **Offline action loss is not the metric.** Training data come from the expert
+  distribution `o_t ~ p_expert`, execution visits the policy's own distribution
+  `o_t ~ p_π`. A small error moves the robot to an unseen state, the next error is
+  larger, and the failure compounds. This is the single concept that links BC,
+  ACT, Diffusion Policy, VLA, and recovery.
+
+## VLA Anatomy
+
+The pipeline to be able to explain without hand-waving:
+
+```text
+RGB (one or more cameras) → vision encoder (ViT / DINOv2 / SigLIP) → visual tokens
+language instruction                                                → text tokens
+robot state / proprioception                                        → state tokens
+                                    ↓
+                       transformer (self-attention across tokens)
+                                    ↓
+                action head: discrete action tokens  |  continuous action expert
+                                    ↓
+                            action / action chunk
+```
+
+Attention is the mechanism that lets these token groups exchange information, so
+the concrete question to answer is *which tokens exchange what*: the instruction
+token must bind to the relevant visual tokens, and the state tokens must condition
+the action. `Q = XW_Q`, `K = XW_K`, `V = XW_V` with
+`Attention(Q,K,V) = softmax(QKᵀ/√d_k)V` is the mechanism; the interesting part is
+the routing, not the arithmetic.
+
+Two design choices with consequences:
+
+- **Discrete action tokens** (RT-2, OpenVLA) reuse the language-model stack and
+  inherit semantic transfer, at the cost of pushing continuous control through a
+  tokenizer.
+- **Continuous generation** (diffusion or flow-matching action heads) keeps
+  control continuous and models multimodality, at the cost of a heavier head.
+
+**Action representation is a first-class research problem, not an implementation
+detail.** Dimension, normalization, frame, absolute-versus-delta semantics,
+control frequency, and gripper convention decide whether data from two robots can
+be mixed at all. This repository already has hard-won evidence for that claim in
+its own data: two 8-dimensional action vectors that look compatible are not (see
+"Action Specification"), and a unified action space is what makes cross-robot
+pretraining possible in systems such as RDT-1B. Concatenating heterogeneous robot
+data without semantic alignment hides embodiment semantics rather than pooling it.
+
+## Task World Model
+
+The world model to build first is **task-level, not pixel-level**:
+
+```text
+z_t = { object state, task state, human state }
+learn  p(z_{t+1} | z_t, a_t)
+```
+
+Example: with `kettle = empty`, `cup = empty`, the action `fill(kettle)` should
+predict `kettle = filled`; executing a step whose precondition was skipped should
+predict a raised failure probability.
+
+Its value is **counterfactual ranking before execution**:
+
+```text
+candidate action A → world model → predicted outcome A (+ uncertainty)
+candidate action B → world model → predicted outcome B (+ uncertainty)
+→ choose / ask / refuse
+```
+
+That is what a reactive mapping lacks: an answer to "if I do this, what happens?".
+Explicitly avoid starting from video generation; predicting pixels is a different
+research programme and not the bottleneck this direction addresses.
+
+## Planning, Recovery, and Intervention
+
+The action vocabulary of an assistant is wider than "act":
+
+```text
+act | guide | ask | wait | recover | escalate
+```
+
+Which one is selected depends on task state, human state, and confidence. Failure
+handling is part of the model, not an exception path: detect the failure, localize
+it to a step, decide between retry, alternative path, human help, and safe stop,
+and update task state afterwards.
+
+Evaluation for this layer must report more than task success:
+
+- intervention rate, and whether the intervention was necessary;
+- recovery success after an induced failure;
+- safety violations, force/collision severity, and unsafe exploratory actions;
+- calibration of the confidence used to decide, and quality of safe refusal;
+- time and resource cost, including the human's time.
+
+Binary success also discards **failure severity**: dropping an object, asking for
+help, timing out safely, and colliding with a person are all "failure" and have
+nothing in common operationally.
+
+For collaboration specifically, the open problems are shared task state, a model
+of what the other agent can do and has done, and initiative/handover. Exchanging
+more text between two LLM agents is not a solution to any of them.
+
+## Sim-to-Real: Randomization Versus Adaptation
+
+Two philosophies, which are complementary rather than rival:
+
+- **Domain randomization** — make simulation diverse enough that reality is just
+  another variation (the dexterous-hand lineage).
+- **Online adaptation** — assume reality will differ, and learn to infer the
+  difference quickly (RMA-style latent adaptation from recent experience).
+
+For long-lived agents the second matters more, because dynamics drift after
+deployment: payload, wear, friction, camera calibration, latency, and actuator
+gain all change. The practical recipe is broad randomization for pretraining plus a
+bounded residual adaptation at deployment, wrapped in a safety layer so that
+exploration cannot violate physical constraints.
+
+Evaluation should therefore induce controlled post-deployment shifts and measure
+time-to-recovery and violation counts, not only "sim versus real" success.
+
+## Study Priority Stack
+
+Research-facing priorities. The lesson sequence in the roadmap remains the
+execution track; this table states what each phase is *for*.
+
+| Priority | Gap | Target level | Why it is on the critical path |
+|---|---|---|---|
+| P0 | Closed-loop BC evaluation | train/validation split, rollout, success rate, failure analysis, covariate shift and compounding error | The pipeline currently trains but has never driven the environment; without this, nothing later can be measured |
+| P0 | Deep learning and Transformer fundamentals | tensor/batch, loss/backprop, embedding, self/cross-attention, causal mask, position encoding, residual, LayerNorm, fine-tuning/LoRA | Otherwise OpenVLA, `π0.5`, and world models can only be run, not understood |
+| P0 | Action policy families | BC → action chunking → diffusion → flow matching | The current `π`-family design is generative action, not classification-style BC |
+| P1 | VLM → VLA architecture | representation → action head; discrete tokens versus continuous generation; pretrain/post-train | The entry point from robot learning into embodied agents |
+| P1 | Task representation and task state | steps, preconditions, effects, prerequisite relations that admit cycles and re-entry, completion conditions; state estimation; observation ≠ state | The intended research differentiator |
+| P1 | Embodied memory | episodic / semantic / procedural memory; object permanence; retrieval and forgetting | Needed for any task longer than a few seconds |
+| P2 | Task world model | task-level transition prediction, counterfactual ranking, uncertainty | Supplies consequence prediction to the planner |
+| P2 | Planning and recovery | replanning, failure detection and localization, alternative paths, safe stop | Turns task state into behavior rather than a report |
+| P2 | Uncertainty and calibrated intervention | confidence calibration, selective prediction, act/ask/wait/escalate | Where existing adaptive-guidance work becomes an embodied-agent contribution |
+| P2 | Human–agent collaboration | shared task state, capability model, initiative, handover | Formalization of the human side, not more HCI method work |
+
+Immediate order, given the repository state: finish the closed loop (2.8.7
+train/validation on the retargeted expert episodes, then 2.8.8 closed-loop
+execution), then Transformer and action-policy study against a concrete system
+(OpenVLA as the dissection object), then the task-intelligence layer, where
+existing strengths apply.
+
 ## Current Engineering Decision
 
 The initial fixed task is `PickCube-v1`. Keep it as the main environment while
@@ -331,10 +599,19 @@ contact-rich insertion task only after the basic interfaces are stable.
 - The project is not becoming a traditional manipulation/control curriculum.
 - ManiSkill and the mechanical arm remain the stable embodiment for every
   executable experiment.
+- The research target is the **task-intelligence layer** between foundation models
+  and action — task state, memory, task-level prediction, recovery, and
+  intervention — not another VLA and not a video-generation world model. See
+  "Research Direction: Task Intelligence for Embodied Agents".
 - Learning priority shifts toward deep learning, multimodal representation,
-  VLA, task memory, task world models, and long-horizon recovery.
+  action-policy families, VLA anatomy, task-state tracking, memory, task world
+  models, and long-horizon recovery, in the order given by "Study Priority Stack".
 - Existing XR research is reused as technical prior work: egocentric sensing,
-  task segmentation, dependency graphs, gaze/attention modeling, and adaptive
-  guidance become components of a task-centric embodied agent.
+  temporal/spatial task segmentation, gaze and attention modeling, human-state
+  estimation, and adaptive guidance become components of a task-centric embodied
+  agent.
+- ROS 2, SLAM, low-level control theory, large-scale RL, and pixel-level world
+  models are substrate, not study goals; adopt them when an experiment requires
+  them.
 - Current evidence gates remain unchanged: future modules are planned, not
   complete, until code, data, and closed-loop evaluation exist.

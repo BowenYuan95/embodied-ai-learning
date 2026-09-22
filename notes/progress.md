@@ -276,6 +276,14 @@ is why the 200-step configuration had to assert the effective limit explicitly.
 - [x] Action smoothness separates the two data regimes. `[verified]` — recomputed
   from the payloads: random fixture `mean |Δa| = 0.6723`; expert per-episode
   `0.0078 / 0.0074 / 0.0080 / 0.0077 / 0.0077` (mean `0.0077`).
+- [x] Seeds actually vary the task instance, so scaling the seed range adds real
+  diversity. `[verified]` — across the five episodes the initial cube position
+  spans `0.1507 m` in `x` and `0.1325 m` in `y`, the goal position spans
+  `0.1522 / 0.1192 / 0.2452 m`, and the mean pairwise distance between reset
+  observations is `1.0945`, i.e. **`16.3×`** the mean consecutive-frame distance
+  inside an episode (`0.0671`). Caveat for the next phase: the variation is in
+  *where* the object and goal are, not in *how* the task is performed, because all
+  episodes come from the same scripted planner recipe.
 - [x] Notebook exists, is corrected, and is executed. `[verified]` —
   `notebooks/2.9_expert_demonstrations.ipynb`, 23 cells (14 markdown / 9 code),
   all code cells executed with zero error outputs, kernel `embodied`. Section

@@ -71,15 +71,19 @@ The initial task is `PickCube-v1`. Later stages introduce a planar pushing task,
 | Expert data contract | Complete (2.9) | Collector writes `T+1` observations / `T` actions, asserts the control mode, and excludes failed episodes; the post-action-offset and failure-persistence defects were fixed and the dataset regenerated |
 | Minimal BC training | Complete | MLP `42→128→128→8`, MSE, Adam; training loss `0.346221 → 0.105965` over 100 epochs |
 | Episode-level train/validation | Complete (2.8.7) | 4 training episodes (284 samples) / 1 validation episode (76); training loss `1.3136 → 0.006` while validation stayed at `0.75`–`0.77`; best validation MSE `0.2350` **worse** than the mean-action baseline `0.1421`; early stopping kept epoch 3 |
-| Closed-loop execution | Complete (2.8.8) | Best checkpoint deployed with action clipping on unseen `seed=100`; task **not** completed at 50 or 200 steps; `199/200` steps had clipped action channels, which rules out the episode time limit as the cause |
+| Closed-loop execution | Complete (2.8.8) | Best checkpoint deployed with action clipping on unseen `seed=100`; task **not** completed at 50 or 200 steps; `199/200` steps had clipped action channels, which rules out the episode time limit as the cause. Extended to **10 seeded episodes (`100`–`109`): 0/10 success, mean clipped fraction `0.995`** via `scripts/evaluate_bc_closed_loop.py` |
+| Checkpoint inference contract | Verified | `scripts/verify_bc_checkpoint.py` loads `checkpoints/pickcube_bc_best.pt` in a fresh process, rebuilds the policy from the stored dimensions, asserts `pd_joint_pos` / obs `42` / action `8` / clipped-action bounds, and reproduces validation MSE `0.23502295` and baseline `0.14210252` exactly |
 | Expert demonstrations | Complete (2.9) | Motion planner drives `PickCube-v1`; **5/5 episodes succeed**. Expert action smoothness `|Δa| 0.0078` vs random `0.67` |
 
 **Lesson 2 result:** the BC model fitted the training demonstrations but did not
-generalize to an unseen episode, and the closed-loop rollout confirms it cannot
-complete the task. The training code is correct; the model is a documented
-**failure baseline**, not a usable policy. Reaching a usable policy is a data
-problem next: at least 30–50 expert episodes, re-trained with the same
-episode-level split.
+generalize to an unseen episode, and the closed-loop evaluation over ten seeded
+episodes confirms it never completes the task. The training code is correct; the
+model is a documented **failure baseline**, not a usable policy. A detail worth
+keeping: on held-out episode states only `0.2%` of raw action values are out of
+bounds, but once the policy drives the environment `99.5%` of steps need clipping —
+compounding distribution shift, measured rather than assumed. Reaching a usable
+policy is a data problem next: at least 30–50 expert episodes, re-trained with the
+same episode-level split.
 
 ## Current Dataset
 
@@ -152,6 +156,8 @@ embodied-ai-learning/
     ├── observation_adapter.py     deployable versus privileged state partition
     ├── generate_expert_demo.py    motion-planner expert episodes (needs embodied310)
     ├── convert_expert_actions_to_delta.py   pd_joint_pos → pd_joint_delta_pos retargeting
+    ├── verify_bc_checkpoint.py    fresh-process checkpoint + action-contract check
+    ├── evaluate_bc_closed_loop.py multi-seed closed-loop success-rate evaluation
     ├── collect_pickcube_random_rollout.py   source rollout collection
     └── replay_pickcube_episode.py           acceptance-gate replay evidence
 ```
@@ -162,7 +168,8 @@ generated. Every other script either produces source data
 (`collect_pickcube_random_rollout.py`), produces expert demonstrations and their
 semantics conversion (`generate_expert_demo.py`,
 `convert_expert_actions_to_delta.py`), or proves an acceptance claim
-(`replay_pickcube_episode.py`).
+(`replay_pickcube_episode.py`, `verify_bc_checkpoint.py`,
+`evaluate_bc_closed_loop.py`).
 
 Scripts that were retired are listed in `archive/README.md` with the reason and their
 replacement. The trajectory-validation checks that used to live in three standalone

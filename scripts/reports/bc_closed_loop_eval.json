@@ -1,0 +1,137 @@
+{
+  "checkpoint": "/home/bowenyuan/Projects/embodied-ai-learning/checkpoints/pickcube_bc_best.pt",
+  "best_epoch": 3,
+  "best_validation_loss": 0.23502295425063685,
+  "control_mode": "pd_joint_pos",
+  "max_steps": 200,
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "episodes": [
+    {
+      "seed": 100,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.32771,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": 18,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 101,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.269618,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": 21,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 102,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.933295,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 103,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.455562,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 104,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.384797,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 105,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.635346,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 106,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.351318,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": 26,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 107,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.470642,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 108,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.480667,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    },
+    {
+      "seed": 109,
+      "steps": 200,
+      "success": false,
+      "success_step": null,
+      "total_reward": 0.504983,
+      "clipped_steps": 199,
+      "clipped_fraction": 0.995,
+      "first_zero_reward_step": null,
+      "termination_reason": "truncated"
+    }
+  ],
+  "success_count": 0,
+  "episode_count": 10,
+  "success_rate": 0.0,
+  "mean_reward": 0.48139380000000004,
+  "mean_clipped_fraction": 0.9949999999999999,
+  "note": "Closed-loop evaluation of the baseline BC checkpoint. The expected result is a 0% success rate: this is the documented failure baseline, not a usable policy."
+}

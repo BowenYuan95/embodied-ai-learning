@@ -236,6 +236,8 @@ and the held-out observations are far outside the training statistics.
 | 50-step run | `Success: False`, `clipped_steps = 49 / 50`, terminated by `truncated`, total reward `0.3277` |
 | 200-step run | `Success: False`, reward `0.0` from step ~20 onward, `clipped=True` on every step after the first |
 | Clipping per channel | `joint_2 / joint_4 / joint_6 / joint_7 / gripper` `199/200`; `joint_1` `149/200`; `joint_3` `129/200`; `joint_5` `101/200` |
+| Multi-seed success rate | `scripts/evaluate_bc_closed_loop.py --seeds 100…109` (fresh process, saved checkpoint): **0/10 = 0.0%**, all 200 steps and `truncated`, mean clipped fraction `0.995` |
+| Fresh-process contract check | `scripts/verify_bc_checkpoint.py`: `strict=True` load, `pd_joint_pos`, obs `42`, action `8`, clipped action inside bounds, validation MSE `0.23502295` and baseline `0.14210252` reproduced exactly |
 
 Reading: the policy reaches no goal, drifts immediately off the training
 distribution, and saturates the control bounds for the rest of the episode. The
@@ -736,6 +738,41 @@ reusable gate check that performs full-frame validation.
 | Closed-loop execution | Policy drives `env.step` and task outcome known | **PASS `[verified]`** — best checkpoint deployed with clipping on unseen seed 100; task **not** completed at 50 and 200 steps |
 | Reusable inspection | `scripts/inspect_robot_dataset.py` runs independently | **ABSENT `[verified]`** — the only unmet item of the project's own completion gate (declared complete by the learner; build it or waive it explicitly) |
 
+## BC Closed-Loop Gate (per `AGENTS.md`)
+
+`AGENTS.md` defines a separate gate for the baseline BC artifact:
+"do not treat baseline BC as complete until all of the following are
+evidenced". Assessed against the executed notebook
+(`notebooks/2.8_check_data.ipynb`) and the on-disk checkpoint:
+
+| # | Requirement | Status | Evidence |
+|---:|---|---|---|
+| 1 | Expert demonstrations, not random fixtures | **MET `[verified]`** | 5 planner episodes, 5/5 `success`, `expert_episodes.h5` |
+| 2 | Split by episode/trajectory, no frame leakage | **MET `[verified]`** | 4 training / 1 validation episode, `default_rng(seed=42)`; leakage measured as 8.8×–13.7× on smooth data versus 1.04× on the random fixture |
+| 3 | Normalization and action scaling fitted on training data only and saved for inference | **MET `[verified]`** | statistics computed from `train_observations` only; both are persisted in `checkpoints/pickcube_bc_best.pt` together with `observation_dim`, `action_dim`, `hidden_dim`, `best_epoch`, and the episode lists |
+| 4 | Loss curves, seeds, configuration, checkpoint selection recorded | **MET `[verified]`** | per-epoch train/validation losses, `torch.manual_seed(42)`, `max_epochs=300`, `patience=40`, `batch_size=32`, `hidden_dim=64`, best epoch 3 |
+| 5 | Checkpoint loads in a **fresh process** and produces actions with expected shape, range, units, frame, control semantics | **MET `[verified]`** | `scripts/verify_bc_checkpoint.py` reads the file from disk in a new process, rebuilds the architecture from the stored dims, loads with `strict=True`, checks `control_mode=pd_joint_pos` / obs 42 / action 8 / clipped action inside bounds / output `(1,8) float32`, and reproduces the recorded validation MSE `0.23502295` and baseline `0.14210252` exactly |
+| 6 | Executes in ManiSkill closed loop under the same observation/controller contract | **MET `[verified]`** | `obs_mode="state"` + `control_mode="pd_joint_pos"` for both training data and rollout; 50- and 200-step rollouts |
+| 7 | Task success rate across **multiple seeded episodes**, plus representative failure modes | **MET `[verified]`** | `scripts/evaluate_bc_closed_loop.py --seeds 100…109`: **0/10 success (0.0%)**, every episode 200 steps and truncated, mean clipped fraction **0.995**, reward mean `0.4814` / max `0.9333`. Report: `scripts/reports/bc_closed_loop_eval.json` |
+| 8 | At least one failure analysed via state-distribution shift, compounding error, action semantics, or insufficient history | **MET `[verified]`** | held-out `|z| = 13.21` (dim 39, training std `0.0088`), reward collapse to `0.0` by step ~20, `199/200` clipped steps |
+
+Score: **8 of 8 met**. The two verification items were closed in the same
+session by two new scripts (both load the checkpoint from disk in a fresh process,
+never from an in-memory state dict):
+
+- `scripts/verify_bc_checkpoint.py` → item 5 (action/observation contract plus an
+  exact reproduction of the recorded validation MSE and baseline);
+- `scripts/evaluate_bc_closed_loop.py` → item 7 (10 seeded episodes, success rate,
+  clipping statistics, JSON report).
+
+One sharp contrast worth keeping: on the **held-out episode's own states** the raw
+policy output is out of bounds for only `1/608` values (`0.2%`), but once the policy
+drives the environment the clipped fraction rises to **`0.995`**. That gap is a
+direct measurement of compounding distribution shift, not an inference.
+
+The separate Lesson 2 gate is still short of one item:
+`scripts/inspect_robot_dataset.py` does not exist.
+
 ## Immediate Next Steps
 
 Lesson 2 is closed. The next work is **data and theory**, not repair of the
@@ -764,6 +801,82 @@ existing training code.
    versus the `2.1`–`2.8.8` roadmap sequence.
 
 ## Session Log
+
+### 2026-09-22 — BC gate items 5 and 7 closed by two fresh-process scripts
+
+The expanded `AGENTS.md` adds a BC closed-loop gate. Two of its eight items were
+verification work rather than modelling work, and both were closed here without
+touching the training code, the checkpoint, or the dataset.
+
+New scripts (both read `checkpoints/pickcube_bc_best.pt` from disk in a new
+process; neither reloads an in-memory state dict):
+
+- `scripts/verify_bc_checkpoint.py` — gate item 5. Rebuilds the MLP from the
+  stored `observation_dim` / `action_dim` / `hidden_dim`, loads with `strict=True`,
+  and asserts: `control_mode == "pd_joint_pos"`, observation dimension `42`,
+  action dimension `8`, output `(1, 8) float32`, clipped action inside the live
+  action bounds, normalization tensors `(1, 42)` with strictly positive std.
+  It also re-derives the recorded numbers from the file alone: validation MSE
+  `0.23502295` and mean-action baseline `0.14210252`, both matching the notebook
+  to `1e-5`. Result: `RESULT: PASS`.
+- `scripts/evaluate_bc_closed_loop.py` — gate item 7. Runs closed-loop rollouts
+  under the training contract, asserts the effective `TimeLimit` is 200 from the
+  wrapper (so truncation cannot explain the result), and reports per-seed
+  success, reward, clipped fraction, first zero-reward step, and termination
+  reason, plus a JSON report.
+
+Result over seeds `100`–`109` (`[verified]`):
+
+| Metric | Value |
+|---|---|
+| Success rate | **0/10 = 0.0%** |
+| Steps / termination | 200 / `truncated` for every seed |
+| Total reward | mean `0.4814`, max `0.9333` |
+| Clipped fraction | mean `0.995` (min `0.995`, max `0.995`) |
+
+Report: `scripts/reports/bc_closed_loop_eval.json`.
+
+One contrast this produces, which is now part of the failure analysis: the raw
+policy output is out of the control bounds for only `1/608` values (`0.2%`) when
+evaluated on the **held-out episode's own states**, but the clipped fraction
+during closed-loop rollout is `0.995`. The model is acceptable on the expert state
+distribution and degrades immediately off it — a direct measurement of
+compounding distribution shift.
+
+Also updated: the BC gate table (now **8 of 8 met**), the 2.8.8 evidence table, and
+`Immediate Next Steps` (the two closed items were removed and the list
+renumbered). The Lesson 2 gate still lacks `scripts/inspect_robot_dataset.py`.
+
+### 2026-09-22 — `AGENTS.md` replaced with the expanded research-guidance revision
+
+The learner supplied a new `AGENTS.md` and asked for it to replace the previous
+one. It was copied byte-for-byte into the repository root; the file hash matches
+the attachment (`sha256:b704ddfd1507944d44f92f245ead6d192f89a2a41869592be6131275d3f61272`).
+
+What the new revision adds (three new sections, ~122 added lines):
+
+- `Learning and Research Priorities` — P0 close the policy loop (train/validation,
+  closed loop, distribution shift, DL/Transformer foundations, action-policy
+  families, VLA anatomy), P1 procedural task intelligence (task representation,
+  task graph versus task state, partial observability, memory, task-centric world
+  model), P2 collaboration (planning, recovery, calibrated intervention, shared
+  autonomy), and an explicit deprioritized list (ROS 2, SLAM, large-scale RL,
+  Isaac Lab, low-level control, complex motion planning, Sim2Real).
+- `Current BC Closed-Loop Gate` — eight evidence requirements for the baseline BC
+  artifact, plus a long-term research-direction paragraph in the mission section
+  and additional working rules (observation vs latent state vs belief/task state;
+  static task graph vs online task-state estimation; trace the full information
+  path; concept-driven reproduction; no forced XR analogies).
+- `Research Vocabulary and Framing` — preferred umbrella term, core technical
+  identity, core agent state, core memories, and the task-state-transition world
+  model starting point.
+
+Consequence recorded in this file: the new BC gate was assessed item by item
+(6 of 8 met). Two verification items are outstanding — a fresh-process checkpoint
+load with action-contract assertions (item 5) and a multi-seed success rate
+(item 7) — and the separate Lesson 2 gate still lacks
+`scripts/inspect_robot_dataset.py`. Both gate tables are now in this file, and the
+two cheap items were added to `Immediate Next Steps`.
 
 ### 2026-09-22 — Lesson 2 closed: 2.8.7 and 2.8.8 verified as a negative result
 

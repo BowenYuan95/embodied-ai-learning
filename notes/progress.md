@@ -709,3 +709,68 @@ from any other working directory. Verified end to end with `--overwrite`.
   (1 episode, 50 frames, fps 50) are unchanged, and the timing defect
   (`timestamp_source: synthetic`, `nominal_fps: 50` over 20 Hz control) is still
   present and still open.
+
+### 2026-09-22 — Notebook path resolution fixed to the project root
+
+**Symptom.** `notebooks/datasets/` and `notebooks/.cache/` appeared inside the notebook
+directory instead of the repository root. `notebooks/datasets/` held the entire
+`maniskill_pickcube_smoke` dataset and `pickcube_smoke.h5` — **the only copy on disk**;
+the root had no counterparts.
+
+**Root cause.** `2.5_generate_lerobot_dataset.ipynb` built its paths from bare relative
+literals:
+
+```python
+OUTPUT_ROOT = Path('datasets/lerobot/maniskill_pickcube_smoke').resolve()
+RAW_H5 = Path('datasets/raw/pickcube_smoke.h5').resolve()
+```
+
+Relative to a `notebooks/` working directory those resolve to `notebooks/datasets/...`
+and the notebook creates them silently — no error, just data in the wrong place.
+
+Every other notebook that touched files used `Path.cwd()`, which **assumes** the working
+directory is the repository root. That assumption holds under `nbclient` (working
+directory `.`) and breaks as soon as Jupyter is started from `notebooks/`.
+
+**Fix.** A single resolver, taken from the fallback already written by hand in
+`2.6_dataset_dataloader.ipynb` and generalized to walk up until the project root is found:
+
+```python
+_cwd = Path.cwd().resolve()
+PROJECT_ROOT = next(
+    (p for p in (_cwd, *_cwd.parents) if (p / ".git").exists()),
+    _cwd.parent if _cwd.name == "notebooks" else _cwd,
+)
+```
+
+Applied inline to the affected cells of: `1.1`, `2.3`, `2.4`, `2.5`, `2.6`, `2.9`,
+`3.1`. It was written into existing cells rather than added as new ones, so no cell was
+inserted and execution order is unaffected. Verified: the resolver returns the repository
+root whether the working directory is the root or `notebooks/`.
+
+**Second defect found while fixing it.** `2.4`, `2.5`, and `2.6` did not set the Hugging
+Face cache, so dataset reads fell back to `~/.cache/huggingface` and failed with
+`PermissionError`. The notebooks were only working because the runner exported
+`HF_HOME`/`HF_DATASETS_CACHE`. They now configure the cache themselves, at
+`PROJECT_ROOT/.cache/hf`, and the ordering constraint is explicit in the code: the cache
+must be set **before** lerobot is imported, because the `datasets` package snapshots its
+cache location at import time. The first attempt in `2.6` set the environment after
+`from lerobot... import LeRobotDataset` and still failed — that ordering bug is now
+commented in the notebook.
+
+**Cleanup and regeneration.** `notebooks/datasets/` and `notebooks/.cache/` were deleted,
+and `2.5` was re-executed to regenerate its outputs at the correct location:
+`datasets/raw/pickcube_smoke.h5` and `datasets/lerobot/maniskill_pickcube_smoke/`. The two
+`meta/*.json` files that had been force-added to Git under `notebooks/` are removed; the
+root-level counterparts are correctly covered by the existing `datasets/*` ignore rule.
+
+**Verification.** All notebooks that touch data were re-executed in a **stripped
+environment** (`env -i`, no `HF_HOME`, no `HF_DATASETS_CACHE`) and complete with zero
+errors, confirming they are self-sufficient:
+
+`1.1`, `2.3`, `2.4`, `2.5`, `2.6`, `2.9`, `3.1` — all pass. No bare `Path.cwd()` call
+remains outside the resolver itself. `notebooks/` contains only `.ipynb` files.
+
+Not changed: `2.7` (it has no data-loading cell — it consumes `dataset` / `dataloader`
+defined by `2.6` in the same kernel) and `2.8` (no file writes; its absolute
+`site-packages` paths are a separate, already-documented trap).

@@ -48,10 +48,18 @@ conversion path.
 
 The Lesson 2 tools that remain in `scripts/` are the ones that produce data or prove
 the acceptance gate: `collect_pickcube_random_rollout.py` (source data),
+`generate_expert_demo.py` (planner expert episodes),
+`convert_expert_actions_to_delta.py` (their semantics conversion),
 `replay_pickcube_episode.py` (the replay evidence required by the acceptance gate),
-`run_pipeline.py` with `scripts/pipeline/` (the conversion and quality gate),
-`observation_adapter.py` (the deployable-versus-privileged partition), and
-`build_lesson_notebooks.py` (notebook generation).
+`run_pipeline.py` with `scripts/pipeline/` (the conversion and quality gate), and
+`observation_adapter.py` (the deployable-versus-privileged partition).
+
+`build_lesson_notebooks.py` (notebook generation) was **deleted** on 2026-09-22, not
+archived: it re-emitted the notebooks from an older revision without outputs, so it
+would have overwritten the current Chinese markdown and the executed-output record.
+The notebooks are now the source of truth for their own code. Recover the script from
+Git history (`git show <commit>:scripts/build_lesson_notebooks.py`) if an old cell
+definition is ever needed.
 
 ### Why the reporting script was retired rather than kept
 

@@ -1,31 +1,54 @@
-# 具身智能系统学习路线图 v3 — ManiSkill 贯穿版
+# 具身智能系统学习路线图 v4 — Task-Centric Embodied Agent
 
-更新日期：2026-09-18
+更新日期：2026-09-22
 
 ## 总体目标
 
-保持原有知识主线：
+长期目标不再是把机械臂控制本身作为终点，而是构建面向复杂长期任务的
+**Task-Centric Embodied Agent**：从多模态观察与人类示范中学习任务结构，维护任务
+状态与记忆，预测行动后果，并通过 VLA / learned policy 执行或辅助人类完成任务。
 
-**Modern Robotics → Robot Learning → ACT / Diffusion Policy → VLA → World Model → 数据闭环**
+战略知识主线：
 
-新增贯穿式实验主线：
+**Deep Learning → Multimodal Representation → VLA → Task Intelligence → Task World Model → Human-Agent Collaboration**
 
-**ManiSkill Environment → Demonstration/Data → LeRobot Schema → Policy Training → Sim/VR/Real Mixture → Sim2Real/Real2Sim → Bad-case Data Loop**
+贯穿式实验主线：
 
-核心原则：ManiSkill 不作为单独一课，而作为所有核心知识的默认实验平台；LeRobot 作为跨仿真、VR/遥操作和真实机器人数据的统一数据接口之一。
+**ManiSkill → Demonstration/Data → LeRobot Schema → Policy/VLA → Task Graph & Memory → Closed-loop Evaluation → Bad-case Data Loop**
+
+核心原则：
+
+1. **Task intelligence 是研究终点，action 是实现方式。**
+2. **机械臂是统一实验载体，而不是职业定位。** ManiSkill、LeRobot 与后续真机用于验证 perception–reasoning–action 闭环。
+3. **VLA 与 world model 是主干能力。** 不以从零训练最大模型为目标，而以理解、复现、适配、微调和任务级增强为目标。
+4. **保留个人差异化。** 将既有的第一视角感知、任务分段、dependency DAG、注意力与自适应辅助，转化为 task memory、task state、intervention policy 与 human-agent collaboration。
 
 ---
 
-## 三条并行学习主线
+## 四条并行学习主线
 
-### A. 理论主线
-机器人状态与动作 → 坐标系/运动学 → 轨迹与控制 → 模仿学习 → Action Chunk → Diffusion/Flow → VLA → World Model → Sim2Real/Data Loop
+### A. Deep Learning & Multimodal Representation
+PyTorch 训练基础 → Transformer → visual representation → multimodal fusion → sequence modeling → fine-tuning / parameter-efficient adaptation → evaluation。
 
-### B. ManiSkill 实验主线
-从 PickCube/PushCube 等简单任务开始，逐步进入 observation/control mode、trajectory、BC、Diffusion Policy、VLA、domain randomization、digital twin、sim2real/real2sim。
+### B. Action Intelligence
+最小机器人表示 → imitation learning → Action Chunk → ACT → Diffusion / Flow → VLA。机械臂运动学、控制与 Sim2Real 只学习到足以支撑数据、模型和闭环实验的深度。
 
-### C. 数据主线
-ManiSkill 仿真数据 + VR/遥操作数据 + 真实机器人 LeRobot 数据 → schema/action/frame/frequency 对齐 → source-aware mixture → pretrain/mixed training/real fine-tuning → bad-case recollection。
+### C. Task Intelligence
+Demonstration → temporal segmentation → skill / subgoal → dependency graph → task state → episodic / procedural memory → hierarchical planning → failure recovery → Task World Model。
+
+### D. Data & Human-Agent Loop
+ManiSkill 仿真数据 + 第一视角视频 + VR/遥操作数据 + 真实机器人数据 → schema / action / frame / frequency / semantics 对齐 → source-aware mixture → human state estimation → adaptive assistance → bad-case recollection。
+
+## 建议学习权重
+
+| 模块 | v4 权重 | 定位 |
+|---|---:|---|
+| Deep Learning / Transformer / multimodal learning | 20% | 当前最需要补强的基础 |
+| VLA 与生成式 action policy | 25% | 求职与技术主线 |
+| Task Intelligence / memory / planning | 20% | 个人差异化核心 |
+| Task World Model | 15% | 从状态预测走向长期任务推理 |
+| Robot fundamentals / control | 10% | 最小必要基础，不追求传统控制深挖 |
+| Human-Agent interaction / data loop | 10% | 承接 XR、gaze、guidance 与用户研究积累 |
 
 ---
 
@@ -183,7 +206,7 @@ Loss → 训练 → Rollout**。本课结束时应当能独立解释并实现这
 
 ---
 
-## Lesson 3 — 模仿学习与行为克隆【当前起点】
+## Lesson 3 — 模仿学习与行为克隆【Lesson 2 验收后的下一阶段】
 
 Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解：
 **为什么模型即使训练 Loss 很低，真实执行时仍可能失败？**
@@ -246,13 +269,20 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - 任务变化与数据覆盖
 - 从仿真数据过渡到真机数据
 
+### 3.10 从轨迹到任务结构
+- 为每帧增加 `task_phase`、`skill`、`subgoal` 与成功/失败标签
+- 将连续 trajectory 从“动作序列”重述为 `Reach → Grasp → Lift → Transport → Place`
+- 比较人工边界、状态事件边界与 learned temporal segmentation
+- 建立后续 Task Graph / procedural memory 的数据接口
+
 ---
 
 ## Lesson 4 — SO(3)、SE(3)、FK/IK 与 Retargeting
 
 > 原计划中「SO(3)/SE(3) 与坐标变换」独立成课，现与 FK/IK/Retargeting 合并为
 > 一课：坐标表示与变换、正逆运动学、Jacobian 与 VR retargeting 是一条连贯的
-> 几何主线。若希望重新拆成两课，在此处调整。
+> 几何主线。v4 将其定位为**最小必要机器人基础**：目标是正确理解和转换数据，
+> 不延伸为传统机械臂控制算法专项。
 
 ### 4.1 SO(3) 与 SE(3)
 - Rotation matrix / quaternion / axis-angle
@@ -303,7 +333,12 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-# Phase 2 — Robot Learning
+# Phase 2 — Deep Learning & Action Intelligence
+
+本阶段增加一条显式深度学习能力线。每个 policy 实验都不仅“调用模型”，还必须能
+解释数据流、tensor shape、loss、optimization、normalization、sequence modeling、
+validation 与 closed-loop metric。大型分布式预训练不是当前硬性目标；优先建立可复现的
+训练、微调、诊断和源码追踪能力。
 
 ## Lesson 6 — Behavior Cloning：第一个真正的 Policy
 
@@ -312,6 +347,9 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - covariate shift
 - open-loop loss vs closed-loop success
 - normalization
+- PyTorch module / optimizer / scheduler / checkpoint
+- train / validation / test 与 episode-level split
+- 过拟合诊断、gradient / activation 基本检查
 
 ### ManiSkill Lab
 - 使用 ManiSkill BC baseline 在 PickCube/PushCube 上训练
@@ -332,6 +370,7 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - single-step prediction 的问题
 - action chunk
 - transformer policy
+- attention、positional encoding、encoder / decoder 与 causal masking
 - temporal ensemble
 - long-horizon imitation
 
@@ -372,6 +411,7 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - vector field / ODE sampling
 - continuous action generation
 - 为 π₀ / π₀.₅ 建立数学直觉
+- 阅读和追踪大型模型代码：configuration、processor、backbone、action expert、checkpoint
 
 ### ManiSkill Lab
 - 用低维 ManiSkill action trajectory 做 toy flow-matching experiment
@@ -391,11 +431,13 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - vision-language representation + action head
 - RT-2 / Octo / OpenVLA 的核心思想
 - cross-embodiment learning
+- reactive VLA 的能力边界：long horizon、memory、task progress 与 recovery
 
 ### ManiSkill Lab
 - 为多个 ManiSkill task 添加语言描述
 - 建立 `(image, state, language) → action` 数据样本
 - 从 single-task policy 过渡到 multi-task policy
+- 扩展为 `(image, state, language, task_state, memory) → action chunk`
 
 ### 数据问题
 - sim language instruction 与真实世界 instruction 如何保持语义一致？
@@ -460,9 +502,67 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-# Phase 4 — World Model & Planning
+# Phase 4 — Task Intelligence & Embodied Memory
 
-## Lesson 14 — Dynamics / World Model
+这是 v4 新增的核心阶段，也是与既有 STAGE、dependency-aware guidance、focus-aware
+interaction 和 AVAR 研究最直接的连接点。目标不是把任务图作为人工规则外挂，而是逐步
+研究它如何由 demonstration / video / robot trajectory 学得，并如何条件化 VLA 和规划。
+
+## Lesson 14 — Task Representation from Demonstration
+
+### 理论
+- task decomposition、temporal segmentation、change-point detection
+- action、skill、subgoal、task phase 与完整 task 的层级关系
+- sequential plan、partial order 与 dependency DAG
+- procedural knowledge 与可执行 task representation
+
+### ManiSkill / Video Lab
+- 将 PickCube trajectory 分段为 `Reach → Grasp → Lift → Transport → Place`
+- 为每段生成边界、语义标签、前置条件、后置条件和置信度
+- 比较 simulator event、人工标注与 representation-based segmentation
+- 将第一视角视频 / VLM 输出映射到同一 task schema
+
+### 核心问题
+- demonstration 中哪些结构可直接观察，哪些必须推断？
+- 分段边界是否稳定，任务图如何表达可选顺序和并行关系？
+
+---
+
+## Lesson 15 — Embodied Memory & Task-State Tracking
+
+### 理论
+- working / short-term memory
+- episodic memory、semantic memory、procedural memory
+- object permanence、re-identification 与跨视野状态保持
+- belief state、uncertainty 与 memory retrieval
+
+### 实验
+- 建立显式 `task_state`：Locked / Available / Active / Completed / Failed
+- 在物体离开视野后保持 identity、last-seen pose 与 uncertainty
+- 记录失败 episode，检索相似历史并给出 recovery candidate
+- 比较无记忆、固定窗口、retrieval memory 与显式 task graph
+
+---
+
+## Lesson 16 — Hierarchical Planning & Task-Conditioned VLA
+
+### 理论
+- instruction → task graph → current subgoal → action chunk
+- hierarchical policy、skill library 与 subgoal-conditioned control
+- progress monitoring、failure detection、replanning 与 recovery
+- LLM / VLM reasoning 与可验证 symbolic state 的边界
+
+### 实验
+- 用 task graph 选择当前可执行 subgoal
+- 让同一 VLA / policy 在不同 task state 下产生不同动作
+- 注入执行失败或跳步，测试 agent 是否检测并恢复
+- 比较 reactive VLA 与 task-memory-conditioned VLA
+
+---
+
+# Phase 5 — Task World Model & Planning
+
+## Lesson 17 — Physical Dynamics & World Model
 
 ### 理论
 - transition model `p(s_{t+1}|s_t,a_t)`
@@ -481,26 +581,32 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-## Lesson 15 — Planning + Policy + World Model
+## Lesson 18 — Task World Model + Planning
 
 ### 理论
 - policy learning vs planning
 - MPC
 - value / success model
 - hierarchical policy
+- 将物理状态预测与任务状态预测区分开：
+  - physical model：`p(s_{t+1} | s_t, a_t)`
+  - task model：`p(z_{t+1}^{task} | z_t^{task}, skill_t, observation)`
+- precondition / effect、progress prediction、uncertainty 与 counterfactual rollout
 
 ### ManiSkill Lab
 - 在同一环境比较 reactive policy 与 rollout-based planning
 - 将 failure trajectory 用于 success/failure prediction
+- 预测“行动后任务会变成什么状态”，而不只预测下一帧或关节状态
+- 使用 learned transition 更新 dependency graph 中的节点状态
 
 ### 数据问题
 - successful demonstrations、failures、recovery trajectories 分别提供什么监督？
 
 ---
 
-# Phase 5 — Sim2Real / Real2Sim / VR Data Engine
+# Phase 6 — Human-Centered Data & Sim2Real
 
-## Lesson 16 — ManiSkill Sim2Real
+## Lesson 19 — ManiSkill Sim2Real
 
 ### 理论
 - reality gap
@@ -519,7 +625,7 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-## Lesson 17 — Real2Sim 与 Digital Twin
+## Lesson 20 — Real2Sim 与 Digital Twin
 
 ### 理论
 - evaluation digital twin
@@ -535,7 +641,7 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-## Lesson 18 — VR Teleoperation as a Data Engine
+## Lesson 21 — Human Demonstration & VR Data Engine
 
 ### 理论
 - VR 6DoF tracking
@@ -555,12 +661,15 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - task phase detection
 - failure/recovery segment
 - human-in-the-loop verification
+- gaze / location / interaction signals → human state estimation
+- confidence / attention / task progress → intervention policy
+- guidance、ask、wait、take over 等 assistance mode 的选择
 
 ---
 
-# Phase 6 — Data Closed Loop
+# Phase 7 — Evaluation & Data Closed Loop
 
-## Lesson 19 — Multi-source Dataset Mixture
+## Lesson 22 — Multi-source Dataset Mixture
 
 ### 数据源
 - Internet / Ego video
@@ -589,7 +698,7 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-## Lesson 20 — Evaluation：Offline ≠ Closed-loop
+## Lesson 23 — Evaluation：Offline ≠ Closed-loop
 
 ### 理论
 - prediction/action loss
@@ -598,6 +707,8 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - perturbation test
 - generalization
 - failure taxonomy
+- task segmentation quality、task-state accuracy、subgoal success、recovery rate
+- intervention precision / recall 与 unnecessary intervention rate
 
 ### ManiSkill Lab
 - 大规模 parallel evaluation
@@ -610,7 +721,7 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-## Lesson 21 — Bad Case → Data → Retraining
+## Lesson 24 — Bad Case → Data → Retraining
 
 ### 闭环
 `Policy rollout → failure detection → segment → label → sim reproduction/augmentation → dataset update → retraining → reevaluation`
@@ -623,26 +734,24 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 ---
 
-# Phase 7 — Capstone
+# Phase 8 — Capstone
 
-## Lesson 22 — 端到端项目
+## Lesson 25 — Task-Centric Embodied Agent
 
 目标：完成一个真正贯穿全部课程的项目。
 
 ### Pipeline
 
-`VR Demonstration`
-→ `Retarget to ManiSkill Robot`
-→ `ManiSkill + Real Demonstrations`
-→ `LeRobot Unified Dataset`
-→ `BC baseline`
-→ `ACT / Diffusion Policy`
-→ `VLA / π₀.₅ adapter or fine-tuning`
-→ `ManiSkill closed-loop evaluation`
-→ `Real robot deployment`
-→ `Bad-case collection`
-→ `Real2Sim reproduction`
-→ `Retraining`
+`Human Demonstration (Ego Video + VR/Robot Data)`
+→ `Multimodal Alignment`
+→ `Temporal Segmentation`
+→ `Task Graph + Episodic Memory`
+→ `Current Task-State Estimation`
+→ `Subgoal / Assistance Decision`
+→ `VLA / ACT / Diffusion Policy Execution`
+→ `Closed-loop Progress & Failure Detection`
+→ `Recovery / Human Intervention`
+→ `Bad-case Collection and Retraining`
 
 ### 最终能力
 学习结束后，应能够独立回答并实现：
@@ -650,6 +759,10 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 - 如何把 VR、simulation、real robot 数据统一到可训练的数据接口；
 - 哪些数据可以共享、哪些只能作为 privileged supervision；
 - 如何选择 BC / ACT / Diffusion / VLA；
+- 如何从示范中提取 task phase、dependency 与 task state；
+- 如何把 task memory 和当前 subgoal 接入 VLA；
+- 如何区分 physical world model 与 task world model；
+- 如何评估 long-horizon progress、failure recovery 与 intervention quality；
 - 如何在 ManiSkill 中训练、评估和诊断 policy；
 - 如何把 policy 从 simulation 推向 real robot；
 - 如何把真实 bad case 重新转化成训练数据。
@@ -664,7 +777,9 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 2. **第二任务：PushCube-v1 或同类简单平面操作** — 比较 action representation 与 generalization。
 3. **接触丰富任务：PegInsertionSide-v1 或等价 insertion task** — 后期用于 Diffusion/VLA/Sim2Real/robustness。
 
-只有进入 multi-task VLA 阶段后再显著扩展任务数量。
+进入 Task Intelligence 阶段后增加一个由多个 skill 组成的**长时程组合任务**，用于
+task segmentation、dependency、memory、progress tracking 与 failure recovery。只有进入
+multi-task VLA 阶段后再显著扩展任务数量。
 
 ---
 
@@ -672,12 +787,16 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 详细状态与证据分级见 `notes/progress.md`（单一进度记录）。本段只保留头条状态。
 
+**战略定位已更新，执行顺序未跳级。** 当前仍先完成 Lesson 2 的 train/validation 与
+closed-loop 基础，再进入 BC / ACT / Diffusion；VLA、Task Intelligence 和 Task World
+Model 是随后逐层建立的主线，不能因路线升级而把尚未验证的能力记为完成。
+
 - Lesson 0：完成
 - Lesson 1：完成
 - Lesson 2：**收尾阶段（约 90%）**。2.1–2.8.6 已完成，下一步为
   **2.8.7「训练集与验证集」**：数据采集、转换、质量验证、Dataset/DataLoader
   与最小 BC 训练循环均已跑通，下一步用训练集/验证集实验引出泛化与分布偏移。
-- Lesson 3：**当前起点** — 模仿学习与行为克隆（3.1–3.9）。
+- Lesson 3：**Lesson 2 验收后的下一阶段** — 模仿学习与行为克隆（3.1–3.10）。
 - Lesson 4：未开始 — SO(3)/SE(3)、FK/IK 与 Retargeting（原独立成课，现合并）。
 
 ## Lesson 2 已完成

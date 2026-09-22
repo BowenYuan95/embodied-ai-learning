@@ -1,13 +1,14 @@
 # Embodied AI Learning
 
-A hands-on learning and engineering project for building robot-learning systems with **ManiSkill**, **LeRobot**, imitation learning, Vision-Language-Action models, world models, and multi-source robot data.
+A hands-on learning and research project for building **task-centric embodied agents** with deep learning, multimodal perception, Vision-Language-Action models, task memory, world models, and closed-loop action. **ManiSkill** and **LeRobot** remain the experimental and data foundations; the mechanical arm is the embodiment used to test the agent, not the endpoint of the project.
 
 The project follows two principles:
 
 1. Learn each concept through a working embodied-agent loop rather than isolated model code.
 2. Treat dataset semantics—state, action, frame, timing, embodiment, and source—as first-class engineering concerns.
+3. Move from reactive `observation → action` policies toward agents that represent task phase, memory, dependencies, progress, and recovery.
 
-> **Current status:** Lesson 2 is in its closing phase (sub-steps 2.1–2.8.6 complete). The trajectory → HDF5 → LeRobot pipeline and read-back validation are done, and a minimal BC training loop runs end to end. Next: 2.8.7 train/validation, then 2.8.8 closed-loop execution.
+> **Current status:** Lesson 2 is in its closing phase (sub-steps 2.1–2.8.6 complete, plus 2.9 expert demonstrations). The trajectory → HDF5 → LeRobot pipeline and read-back validation are done, a minimal BC training loop runs end to end, and five planner-generated expert episodes are recorded in the canonical `T+1` observations / `T` actions schema. The expert actions have been retargeted into the fixture's `pd_joint_delta_pos` semantics (`datasets/pickcube/expert_episodes_delta.h5`), replay-verified with 5/5 success. Next: 2.8.7 train/validation on that data, then 2.8.8 closed-loop execution. See `notes/progress.md`.
 
 ## Project Context
 
@@ -23,26 +24,33 @@ progress documents.
 ## Project Goals
 
 - Understand the complete loop from observation and robot state to policy action and environment transition.
+- Strengthen practical deep-learning foundations: PyTorch training, Transformer sequence modeling, multimodal representation, fine-tuning, and evaluation.
 - Build a reproducible ManiSkill experimentation environment.
 - Convert simulation trajectories into a well-specified robot-learning dataset.
 - Train and compare Behavior Cloning, ACT, Diffusion Policy, and VLA-based policies.
+- Extract task phases, skills, subgoals, and dependency graphs from demonstrations.
+- Build persistent task state and episodic/procedural memory for long-horizon execution.
+- Distinguish physical dynamics models from task world models and connect both to planning.
+- Condition policy/VLA execution on instruction, current task state, memory, and subgoal.
 - Align simulation, VR teleoperation, and real-robot data through a shared schema.
-- Progress toward Sim2Real, Real2Sim, and failure-driven data iteration.
+- Connect prior XR work on gaze, attention, task guidance, and adaptive intervention to human-agent collaboration.
+- Progress toward Sim2Real, Real2Sim, recovery, and failure-driven data iteration.
 
 ## Learning and Experiment Pipeline
 
 ```mermaid
 flowchart TD
-    A["ManiSkill task"] --> B["Trajectory collection"]
-    B --> C["HDF5 inspection"]
-    C --> D["LeRobot v3 conversion"]
-    D --> E["Policy training"]
-    E --> F["Closed-loop evaluation"]
-    F --> G["Failure collection"]
-    G --> B
+    A["Human / robot demonstration"] --> B["Aligned multimodal dataset"]
+    B --> C["Task segmentation + graph"]
+    C --> D["Task state + memory"]
+    D --> E["VLA / learned policy"]
+    E --> F["Closed-loop execution"]
+    F --> G["Progress + failure detection"]
+    G --> H["Recovery / data update"]
+    H --> B
 ```
 
-The initial task is `PickCube-v1`. Later stages will introduce a planar pushing task and a contact-rich insertion task without changing the underlying data and evaluation workflow.
+The initial task is `PickCube-v1`. Later stages introduce a planar pushing task, a contact-rich insertion task, and finally a multi-skill long-horizon task. These tasks share the same data, memory, policy, and evaluation interfaces.
 
 ## Current Progress
 
@@ -131,16 +139,18 @@ embodied-ai-learning/
     │                              post-validate, report, manifest
     ├── observation_adapter.py     deployable versus privileged state partition
     ├── generate_expert_demo.py    motion-planner expert episodes (needs embodied310)
+    ├── convert_expert_actions_to_delta.py   pd_joint_pos → pd_joint_delta_pos retargeting
     ├── collect_pickcube_random_rollout.py   source rollout collection
-    ├── replay_pickcube_episode.py           acceptance-gate replay evidence
-    └── build_lesson_notebooks.py  regenerates the Lesson 1-3 notebooks
+    └── replay_pickcube_episode.py           acceptance-gate replay evidence
 ```
 
 `scripts/pipeline/` is the supported data path: it is the only place that converts a
 trajectory into a trainable dataset, and it is the only place a quality report is
 generated. Every other script either produces source data
-(`collect_pickcube_random_rollout.py`), proves an acceptance claim
-(`replay_pickcube_episode.py`), or is a one-off generator.
+(`collect_pickcube_random_rollout.py`), produces expert demonstrations and their
+semantics conversion (`generate_expert_demo.py`,
+`convert_expert_actions_to_delta.py`), or proves an acceptance claim
+(`replay_pickcube_episode.py`).
 
 Scripts that were retired are listed in `archive/README.md` with the reason and their
 replacement. The trajectory-validation checks that used to live in three standalone
@@ -152,8 +162,12 @@ the dataset-to-training pipeline, and `3.1` opens imitation learning. The scratc
 notebook `2.8_check_data.ipynb` interleaves environment experiments and is not part of
 the curated sequence.
 
-All curated notebooks are committed with executed outputs. `scripts/build_lesson_notebooks.py`
-regenerates them from source without outputs; re-execute afterwards to repopulate.
+The curated notebooks are committed with executed outputs and are the **single source
+of truth** for their own code and prose; there is no generator any more.
+`scripts/build_lesson_notebooks.py` was deleted on 2026-09-22 because it duplicated the
+notebooks from an older revision — regenerating it would have rolled back both the
+Chinese markdown and the recorded outputs. Notebooks are edited directly and
+re-executed with `nbclient`.
 
 `2.9_expert_demonstrations.ipynb` does not construct the motion planner in its own kernel.
 A planner call kills the kernel when NumPy is 2.x, because `mplib` 0.1.1 is built against
@@ -303,6 +317,13 @@ Matching tensor shapes alone do not make two robot datasets compatible.
 
 ## Roadmap
 
+The roadmap now has four parallel capability tracks:
+
+- **Deep learning and multimodal representation** — PyTorch, Transformer, visual-language representation, fine-tuning, and evaluation.
+- **Action intelligence** — BC, ACT, Diffusion/Flow, VLA, and closed-loop control.
+- **Task intelligence** — segmentation, task graph, memory, progress tracking, planning, and recovery.
+- **Human-agent data loop** — egocentric/VR/robot data, human-state estimation, adaptive assistance, and bad-case iteration.
+
 - [x] Embodied AI system overview
 - [x] Robot state, coordinate frames, and action spaces
 - [x] ManiSkill environment setup
@@ -318,27 +339,35 @@ Matching tensor shapes alone do not make two robot datasets compatible.
 - [ ] Compare BC, ACT, and Diffusion Policy
 - [ ] Add language-conditioned multi-task data
 - [ ] Build a ManiSkill-to-VLA adapter
+- [ ] Reproduce and trace a VLA inference/fine-tuning pipeline
+- [ ] Label or infer task phases, skills, and subgoals from trajectories
+- [ ] Build a dependency-aware task graph and explicit task-state tracker
+- [ ] Add episodic/procedural memory and failure retrieval
+- [ ] Compare reactive VLA with task-memory-conditioned VLA
+- [ ] Train a physical dynamics model and a task-state transition model
 - [ ] Add VR teleoperation demonstrations
+- [ ] Add gaze/attention/task-progress signals for intervention decisions
 - [ ] Evaluate Sim2Real and Real2Sim workflows
-- [ ] Build a failure-to-data-to-retraining loop
+- [ ] Evaluate long-horizon progress, recovery, and unnecessary intervention
+- [ ] Build a failure-to-memory/data-to-retraining loop
 
 ## Longer-Term Direction
 
-The end-to-end target is:
+The end-to-end target is a **Task-Centric Embodied Agent**:
 
 ```text
-VR demonstration
-→ robot retargeting
-→ ManiSkill and real demonstrations
-→ unified LeRobot dataset
-→ BC / ACT / Diffusion Policy
-→ VLA integration
-→ closed-loop evaluation
-→ real-world deployment
-→ failure collection and retraining
+Human demonstration (egocentric video + VR/robot state)
+→ multimodal alignment
+→ temporal segmentation
+→ task graph + episodic/procedural memory
+→ current task-state and subgoal inference
+→ task-conditioned VLA / ACT / Diffusion Policy
+→ closed-loop progress and failure detection
+→ recovery or adaptive human assistance
+→ bad-case collection and retraining
 ```
 
-This direction connects prior experience in XR interaction, first-person sensing, multimodal behavior analysis, task segmentation, and adaptive guidance with modern robot-learning systems.
+This direction connects prior experience in XR interaction, first-person sensing, gaze/attention, task segmentation, dependency-aware guidance, and adaptive virtual agents with modern VLA and world-model systems. The intended profile is an embodied-agent researcher specializing in **task understanding, memory, and human-agent collaboration**, with robotic implementation ability.
 
 ## Reproducibility Notes
 
@@ -349,4 +378,4 @@ This direction connects prior experience in XR interaction, first-person sensing
 
 ## Project Status
 
-This is an active learning and engineering repository. Interfaces and schemas may change as experiments move from state-based simulation toward visual policies, language-conditioned control, VR demonstrations, and real-robot data.
+This is an active learning and engineering repository. The current execution point remains the end of Lesson 2; the strategic shift does not skip the required BC and closed-loop foundations. Interfaces and schemas may change as experiments move from state-based simulation toward multimodal VLA policies, task memory, world models, VR demonstrations, and real-robot data.

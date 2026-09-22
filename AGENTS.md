@@ -24,6 +24,30 @@ Use Chinese for explanations and progress discussions unless the learner asks
 otherwise. Keep code, identifiers, comments, commit messages, and public-facing
 repository documentation in English.
 
+### Notebook documentation language
+
+Notebook **markdown** cells are written in **Chinese**, with technical terms kept
+in English. This is a durable learner preference, not a one-off request.
+
+- Translate the prose; keep the terms. Examples of terms that stay in English:
+  `observation`, `state`, `action`, `policy`, `planner`, `controller`, `dataset`,
+  `Dataset`, `DataLoader`, `batch`, `epoch`, `loss`, `MSE`, `MLP`, `Behavior
+  Cloning (BC)`, `trajectory`, `replay`, `rollout`, `schema`, `frame`,
+  `timestamp`, `episode`, `train/validation`, `overfitting`, `underfitting`,
+  `distribution shift`, `privileged state`, `qpos`, `qvel`, `TCP`, `gripper`,
+  `delta`, `absolute`, `normalized`, `seed`, `HDF5`, `LeRobot`, `ManiSkill`,
+  `PyTorch`.
+- Keep **code identifiers, file paths, attribute names, API names, numbers, and
+  units** exactly as they are, including inside prose.
+- Keep markdown structure identical: headings, numbering, tables, code fences,
+  lists, links, emphasis. Code fence bodies are never translated.
+- Keep code cells, their outputs, and `execution_count` untouched. Notebook
+  outputs are execution records, so English stdout stays English.
+- On first use, a Chinese gloss followed by the English term is preferred, e.g.
+  动作（action）、行为克隆（Behavior Cloning, BC）.
+- English remains correct for `README.md`, `notes/*.md`, `docs/*.md`, code
+  comments, and commit messages.
+
 ## Sources of Truth
 
 Use these files in this order:

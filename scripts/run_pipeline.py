@@ -1,4 +1,14 @@
 import argparse
+import sys
+from pathlib import Path
+
+# Make the repository root importable so this script works when invoked as
+# `python scripts/run_pipeline.py` from the repository root, which is how the
+# README documents it. Running a file puts the script's own directory on
+# sys.path, not the working directory, so `import scripts.pipeline` would fail.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.pipeline.loader import load_episode
 from scripts.pipeline.validator import validate_episode
@@ -13,6 +23,8 @@ from scripts.pipeline.reporter import (
 from scripts.pipeline.manifest import (
     write_manifest,
 )
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(

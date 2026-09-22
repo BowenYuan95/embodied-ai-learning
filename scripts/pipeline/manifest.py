@@ -76,21 +76,48 @@ def write_manifest(
 
         "action_semantics": {
             "dimension": 8,
-            "range": [-1.0, 1.0],
+            # The 8-d action is NOT one uniform semantic space. Bounds follow
+            # Python slice semantics: arm covers indices 0-6, gripper index 7.
+            "normalized": True,
             "arm": {
+                "indices": [0, 7],
                 "dimensions": 7,
                 "controller": "PDJointPosController",
+                "control_mode": "pd_joint_delta_pos",
                 "semantics": (
-                    "normalized joint position target"
+                    "normalized joint position delta "
+                    "relative to current qpos"
+                ),
+                "use_delta": True,
+                "use_target": False,
+                "normalize_action": True,
+                "physical_range": [-0.1, 0.1],
+                "unit": "rad",
+                "note": (
+                    "a in [-1,1] maps to dq in [-0.1,0.1] rad; the delta is "
+                    "applied to the actual current joint position because "
+                    "use_target is False"
                 ),
             },
             "gripper": {
+                "indices": [7, 8],
                 "dimensions": 1,
-                "controller": (
-                    "PDJointPosMimicController"
-                ),
+                "controller": "PDJointPosMimicController",
                 "semantics": (
-                    "continuous normalized position target"
+                    "normalized absolute gripper joint position target"
+                ),
+                "use_delta": False,
+                "use_target": False,
+                "normalize_action": True,
+                "physical_range": [-0.01, 0.04],
+                "unit": "m",
+                "mimic": {
+                    "panda_finger_joint2": "panda_finger_joint1"
+                },
+                "note": (
+                    "a in [-1,1] maps linearly onto the joint position range; "
+                    "+1 corresponds to 0.04 and -1 to -0.01. A zero command is "
+                    "an intermediate target, not a neutral no-op."
                 ),
             },
         },

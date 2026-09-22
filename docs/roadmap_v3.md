@@ -787,16 +787,12 @@ multi-task VLA 阶段后再显著扩展任务数量。
 
 详细状态与证据分级见 `notes/progress.md`（单一进度记录）。本段只保留头条状态。
 
-**战略定位已更新，执行顺序未跳级。** 当前仍先完成 Lesson 2 的 train/validation 与
-closed-loop 基础，再进入 BC / ACT / Diffusion；VLA、Task Intelligence 和 Task World
-Model 是随后逐层建立的主线，不能因路线升级而把尚未验证的能力记为完成。
-
 - Lesson 0：完成
 - Lesson 1：完成
-- Lesson 2：**收尾阶段（约 90%）**。2.1–2.8.6 已完成，下一步为
-  **2.8.7「训练集与验证集」**：数据采集、转换、质量验证、Dataset/DataLoader
-  与最小 BC 训练循环均已跑通，下一步用训练集/验证集实验引出泛化与分布偏移。
-- Lesson 3：**Lesson 2 验收后的下一阶段** — 模仿学习与行为克隆（3.1–3.10）。
+- Lesson 2：**完成**。2.1–2.9 全部走通，并以一个**负结果**收尾：BC 模型拟合了 4 条
+  训练 episode，但无法泛化到未见 episode；闭环 rollout 在 seed 100 上未能完成任务。
+  训练代码本身正确，当前模型是**失败基线**（failure baseline），不是可用 policy。
+- Lesson 3：**下一阶段** — 模仿学习与行为克隆（3.1–3.10），入口即上述实测结果。
 - Lesson 4：未开始 — SO(3)/SE(3)、FK/IK 与 Retargeting（原独立成课，现合并）。
 
 ## Lesson 2 已完成
@@ -813,37 +809,28 @@ Model 是随后逐层建立的主线，不能因路线升级而把尚未验证�
 - 数据验证与质量检查：shape / dtype / 范围 / 连续性，action 与 reward 曲线；
 - PyTorch `Dataset` / `DataLoader`：单样本 `[42]` / `[8]` → batch `[8,42]` / `[8,8]`；
 - 最小 BC 模型：MLP `42 → 128 → 128 → 8`、`MSE`、反向传播与参数更新；
-- 完整训练循环：100 epochs、Adam、Loss 曲线，训练 Loss
-  `0.346221 → 0.105965`（`[verified]`，已独立复现；未训练基线 `0.371752`）。
-- 结论：训练管线跑通；但数据结构虽有效，只有 1 个 episode、50 帧且动作近似
-  随机，不能作为专家示范，也无法据此声称策略有效。
+- 完整训练循环：epoch 循环、Adam、Loss 曲线；
+- 2.9 专家演示：motion planner 产出 5 条成功 episode，规范 `T+1` / `T` schema，
+  另有 delta 语义的重定向副本，replay 5/5 成功；
+- **2.8.7 训练集与验证集**：按 episode 划分（4 训练 / 1 验证，`seed=42`），
+  归一化统计只用训练集；training Loss `1.3136 → 0.006`，validation 停在
+  `0.75–0.77`，best `0.2350`（epoch 3），early stopping 于 epoch 40 触发；
+  best 模型**劣于** mean-action baseline `0.1421`；
+- **2.8.8 策略部署与闭环执行**：best checkpoint + action clipping，未见 `seed=100`；
+  50 步与 200 步两次运行均 `Success: False`，200 步运行中 `199/200` 步出现被裁剪的
+  action 通道，从而排除时间上限因素；
+- **结论（正式记录）**：The BC model fitted the four training demonstrations but failed
+  to generalize to an unseen episode. Its best validation MSE (0.2350) was worse than the
+  mean-action baseline (0.1421). During closed-loop rollout on unseen seed 100, the policy
+  failed to complete the task and produced out-of-range actions on 199 of 200 steps,
+  demonstrating severe overfitting and compounding distribution shift.
 
-## Lesson 2 待完成
+## 下一阶段（数据与理论，而不是修训练代码）
 
-1. **2.8.7 训练集与验证集**：为什么只看训练 Loss 不够、train/validation split、
-   泛化与记忆、underfitting 与 overfitting、为什么随机动作数据无法训练出有效
-   策略；单 episode 下 frame 级划分会泄漏，需明确记录该限制。
-   **进展**：2.9 已产出 5 条成功专家 episode
-   （`datasets/pickcube/expert_episodes.h5`，50–86 帧，5/5 成功），
-   因此「只有 1 个 episode」不再是唯一可用数据。但这些 episode 是
-   `pd_joint_pos` 绝对关节目标，与本项目 `pd_joint_delta_pos` 的增量语义
-   **不兼容**，混用前必须先转换并验证。若要据此做按 episode 划分的
-   train/val，需先完成该转换。
-2. **2.8.8 策略部署与闭环执行**：`env.step(policy(state))`、`train()` / `eval()`、
-   `torch.no_grad()`、单步预测与闭环 rollout、动作裁剪与仿真安全、
-   判断策略是否真的完成任务。
-
-以下为记录备查、当前不阻塞的遗留项：
-
-3. `inspect_robot_dataset.py`（本课验收项，目前缺失）；
-4. manifest 溯源：记录中的源路径为已不存在的 `/home/bowenyuan95/...`（sha256 仍
-   与当前源文件一致，仅记录字符串有误），下次重建数据集时用
-   `scripts/run_pipeline.py` 重新生成；夹爪开合方向的物理含义（`0.04` 是否对应
-   完全张开）仍待执行验证或查阅 MJCF 确认；
-5. **20 Hz / 50 Hz 时间契约矛盾**：控制频率实测 20 Hz（`control_timestep=0.05`），
-   而合成时间戳为 `0.02 s`，`converter.py:estimate_fps` 从时间戳反推出
-   `info.json` 的 50 FPS，使时间轴压缩 2.5 倍。修复后在时间窗口工作之前生效；
-6. 42 维 observation 的逐字段命名与可部署性（privileged state）标注。
-
-完成 2.8.7 与 2.8.8 后，Lesson 2 结束，进入
-**Lesson 3：模仿学习与行为克隆**，入口实验即 2.8.7 的训练集/验证集结果。
+1. **数据规模化**：扩充到至少 30–50 条 expert episode
+   （`scripts/generate_expert_demo.py` 只写成功 episode），用同一 episode-level split
+   重新训练，并与当前失败基线对比；
+2. **Lesson 3**：3.1–3.4（问题定义、BC 作为监督学习、泛化与过拟合、distribution
+   shift）直接以上述实测数字作为入口；
+3. 遗留项（不阻塞）：`inspect_robot_dataset.py`（本课验收项，目前缺失）、manifest
+   溯源、20 Hz / 50 Hz 时间契约、42 维 observation 的逐字段命名与可部署性标注。

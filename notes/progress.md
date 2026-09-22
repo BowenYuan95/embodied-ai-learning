@@ -20,10 +20,12 @@ a stronger marker without recording the command or read-back that justifies it.
 
 ## Current Position
 
-Lesson 2 is in its closing phase. The lesson is one continuous thread: **from a
-simulation trajectory to a minimal, trainable behavior-cloning model**. It is
-not a lesson about building more engineering environment, and it does not yet
-evaluate a policy in closed loop.
+Lesson 2 is **complete**. The lesson is one continuous thread: **from a simulation
+trajectory to a minimal behavior-cloning model that is actually deployed and
+measured**. Its deliverable is not a working policy; it is a working and honest
+measurement loop. The pipeline trains, the held-out evaluation exposes
+overfitting, and the closed-loop rollout settles whether the model can do the
+task — it cannot.
 
 | Sub-step | Topic | Status |
 |---|---|---|
@@ -39,61 +41,70 @@ evaluate a policy in closed loop.
 | 2.8.3 | MLP Policy：`R^42 → R^128 → R^128 → R^8` | Complete |
 | 2.8.4 | Loss：`L = MSE(â_t, a_t)` | Complete |
 | 2.8.5 | 反向传播与参数更新：`zero_grad → forward → loss → backward → step` | Complete |
-| 2.8.6 | 完整训练循环：batch 循环、epoch 循环、Adam、Loss 曲线、100 epochs | **Complete `[verified]`** |
-| 2.8.7 | 训练集与验证集 | **Next — 下一步** |
-| 2.8.8 | 策略部署与闭环执行 | Not started |
+| 2.8.6 | 完整训练循环：batch 循环、epoch 循环、Adam、Loss 曲线 | **Complete `[verified]`** |
+| 2.8.7 | 训练集与验证集：按 episode 划分、early stopping、baseline 比较 | **Complete `[verified]`** — 验证集揭示过拟合，泛化未成立 |
+| 2.8.8 | 策略部署与闭环执行：`env.step(policy(state))`、action clipping、rollout 判定 | **Complete `[verified]`** — 闭环已跑通，策略未能完成任务 |
 
-The table above is the roadmap's 2.1–2.8.8 sequence. One further sub-step exists
-outside that sequence:
+One further sub-step exists outside that sequence:
 
 | Sub-step | Topic | Status |
 |---|---|---|
 | 2.9 | 专家演示：ManiSkill motion planner 生成成功 episode | **Complete `[verified]`** — 5/5 成功，360 actions / 365 observations |
 
-**2.9 — 专家演示（已完成的数据资产）.** `notebooks/2.9_expert_demonstrations.ipynb`
+**2.9 — 专家演示（数据资产）.** `notebooks/2.9_expert_demonstrations.ipynb`
 plus `scripts/generate_expert_demo.py` drive ManiSkill's own sampling-based motion
 planner and record five successful `PickCube-v1` episodes into
 `datasets/pickcube/expert_episodes.h5` (`T = 74 / 74 / 50 / 86 / 76` actions,
-`T + 1` observations each, 5/5 `success`). This is the first non-random
-supervision in the repository, so "only 1 episode, 50 frames, near-random
-actions" is no longer the whole data story. The file now uses the canonical
-`T + 1` / `T` transition schema (`transition_schema_version=2`), after the
-collector's post-action observation offset and failure-episode handling were
-fixed in this session. One contract difference remains: the expert episodes are
-`pd_joint_pos` **absolute** joint targets and cannot be mixed with the
-`pd_joint_delta_pos` fixture until the semantics converter exists. See "2.9 —
-Expert demonstrations" and the open issues.
+`T + 1` observations each, 5/5 `success`), in the canonical `T + 1` / `T`
+transition schema (`transition_schema_version=2`). A retargeted copy in the
+fixture's delta semantics exists as
+`datasets/pickcube/expert_episodes_delta.h5` (`scripts/convert_expert_actions_to_delta.py`),
+replay-verified with 5/5 success. The 2.8.7 / 2.8.8 experiment used the
+`pd_joint_pos` file end to end, so dataset semantics and rollout environment
+agreed; the delta copy is what would let this data be mixed with the
+`pd_joint_delta_pos` fixture.
 
-**Current stopping point: 2.8.6 完成，2.9 专家数据已按正确 schema 重新生成；
-2.8.7「训练集与验证集」为下一步，其按 episode 划分的前提是先完成专家动作的
-`pd_joint_pos` → `pd_joint_delta_pos` 语义转换。**
+**Lesson 2 result (formal record).**
 
-Estimated Lesson 2 completion: **about 90%**, based on 2.1–2.8.6 completing, 2.9
-supplying expert data, and only 2.8.7 and 2.8.8 remaining. The 2.9 data does not
-raise the estimate on its own: it adds a prerequisite (the action-semantics
-converter) that the split depends on.
+> The BC model fitted the four training demonstrations but failed to generalize
+> to an unseen episode. Its best validation MSE (0.2350) was worse than the
+> mean-action baseline (0.1421). During closed-loop rollout on unseen seed 100,
+> the policy failed to complete the task and produced out-of-range actions on
+> 199 of 200 steps, demonstrating severe overfitting and compounding
+> distribution shift.
 
-The training pipeline is complete in the narrow sense: a state-based MLP can be
-trained end to end from the converted dataset. It is **not** complete in the
-sense that would justify calling the result a policy — the model has never been
-evaluated on held-out data and has never acted in the environment.
+**The training code is correct; the model is a failure baseline.** Every observed
+behaviour is the intended one: the training loss falls, the validation loss
+exposes overfitting, early stopping keeps the best epoch, the baseline comparison
+shows no generalization, action clipping keeps outputs inside the control bounds,
+and a 50-step versus 200-step comparison rules out the episode time limit as the
+cause. That is precisely why training loss alone cannot be the acceptance metric.
 
-### Why 2.8.7 comes next
+**What comes next is data, not a bug fix.** If a usable BC policy becomes the
+goal, the next round is data scaling: collect at least 30–50 expert episodes and
+re-train with the same episode-level split. The current model stays in the
+repository as a documented failure baseline to compare against.
 
-The next step is deliberately not more engineering. It is a train/validation
-experiment whose purpose is to expose the theory that opens Lesson 3:
+**One AGENTS.md gate item is still unmet:** the reusable
+`scripts/inspect_robot_dataset.py` does not exist, and the project's own completion
+gate lists it. Lesson 2 is declared complete by the learner; that item is recorded
+as open, to be either built or explicitly waived.
 
-- why training loss alone is not enough;
-- train/validation split, generalization versus memorization;
-- underfitting and overfitting;
-- why randomly distributed action data cannot yield a usable policy.
+### Why this negative result is the Lesson 2 deliverable
 
-2.9 changed the data side of that experiment: an honest split is now possible at
-the episode level (5 expert episodes, canonical `T+1`/`T` schema), but only after
-the expert actions are converted into the fixture's semantics. Running 2.8.7 on
-the random fixture alone would still only be able to demonstrate that a
-frame-level split leaks — see the open
-item on the 3.1 leakage measurement.
+The experiment was never meant to produce a controller. It exists to expose the
+theory that opens Lesson 3:
+
+- why training loss alone is not enough: it fell to `0.006` while held-out loss
+  stayed at `0.75`–`0.77`;
+- train/validation split, generalization versus memorization: 284 training
+  samples from four episodes, 76 validation samples from one;
+- underfitting and overfitting, and why early stopping is not optional;
+- why a metric needs a baseline: the model lost to "always predict the mean
+  action" (`0.2350` versus `0.1421`);
+- distribution shift in execution: validation states reach `|z| = 13.2` against
+  training statistics whose std is `0.0088`, and the deployed policy drifts
+  further at every step.
 
 ## Lesson 2 Evidence
 
@@ -170,7 +181,7 @@ item on the 3.1 leakage measurement.
 All values above are `[verified]`: the epoch 1/10/20/30 trajectory and the final
 value `0.105965` were reproduced in an independent run.
 
-Interpretation, and the reason 2.8.7 is next:
+Interpretation, and the reason 2.8.7 came next:
 
 - The loss fell from `0.346221` to `0.105965` and sits well below the untrained
   baseline `0.371752`, so the training pipeline genuinely optimizes. The
@@ -185,6 +196,52 @@ Interpretation, and the reason 2.8.7 is next:
 - The actions in this trajectory are near-random, so even a perfectly trained
   model on this data would not be a usable policy. The value of 2.8.6 is
   proving the pipeline, not producing a controller.
+
+### 2.8.7 — Train/validation split (episode-level)
+
+`[verified]` from the executed cells of `notebooks/2.8_check_data.ipynb`
+(section `2.8.7`), on `datasets/pickcube/expert_episodes.h5`:
+
+| Item | Value |
+|---|---|
+| Split rule | **by episode**, reproducible (`np.random.default_rng(seed=42)`) |
+| Episodes | training `episode_000000`–`000003`; validation `episode_000004` |
+| Samples | train `284`, validation `76` |
+| Normalization | statistics computed from the **training split only** (`std` floored at `1e-6`) |
+| Loaders | `train_loader(shuffle=True)` (9 batches), `validation_loader(shuffle=False)` (3 batches), `batch_size=32` |
+| Missing values | the policy consumes `observations[:-1]` against `actions`, and the loader asserts `len(observations) == len(actions) + 1` |
+| Epochs | `max_epochs = 300`, early stopping after 40 epochs without improvement |
+| Training loss | `1.3136` at epoch 1 → `0.006` by epoch 20–40 |
+| Validation loss | `0.75`–`0.77` throughout; best `0.2350` at **epoch 3** |
+| Best vs baseline | best BC `0.2350` vs mean-action baseline `0.1421` → **worse by `0.0929`** |
+| Per-dimension error | dominated by `joint_4` `0.570`, `gripper` `0.561`, `joint_2` `0.409`; gripper target std `0.994` |
+| Held-out state range | max `|z| = 13.21` on dimension 39, whose training std is `0.0088` |
+
+Reading: the model memorized four episodes. Held-out loss is worse than a
+constant predictor, which is the practical definition of "no generalization yet",
+and the held-out observations are far outside the training statistics.
+
+### 2.8.8 — Closed-loop deployment and rollout
+
+`[verified]` from the executed cells of the same notebook (section `2.8.8`):
+
+| Item | Value |
+|---|---|
+| Environment | `PickCube-v1`, `obs_mode="state"`, `control_mode="pd_joint_pos"` (matching the demonstrations) |
+| Policy | best checkpoint from 2.8.7, `model.eval()` |
+| Preprocessing | the **same** training normalization, applied inside the rollout loop |
+| Safety | every action clipped to `env.action_space` bounds; clipping counted per step |
+| Unseen seed | `100` (`reset(seed=100)`) |
+| Episode limit | default `TimeLimit` is 50 steps; the wrapper's `_max_episode_steps` was overridden to `200` to rule the time limit out |
+| 50-step run | `Success: False`, `clipped_steps = 49 / 50`, terminated by `truncated`, total reward `0.3277` |
+| 200-step run | `Success: False`, reward `0.0` from step ~20 onward, `clipped=True` on every step after the first |
+| Clipping per channel | `joint_2 / joint_4 / joint_6 / joint_7 / gripper` `199/200`; `joint_1` `149/200`; `joint_3` `129/200`; `joint_5` `101/200` |
+
+Reading: the policy reaches no goal, drifts immediately off the training
+distribution, and saturates the control bounds for the rest of the episode. The
+50-versus-200 comparison shows the failure is not an artifact of the episode time
+limit. `gymnasium`'s default `TimeLimit` silently caps episodes at 50 steps, which
+is why the 200-step configuration had to assert the effective limit explicitly.
 
 ### 2.9 — Expert demonstrations
 
@@ -675,52 +732,89 @@ reusable gate check that performs full-frame validation.
 | Backpropagation | `zero_grad → forward → loss → backward → step` updates weights | **PASS** `[reported]` |
 | Training loop | 100 epochs, Adam, reproducible loss curve | **PASS `[verified]`** — `0.346221 → 0.105965`, baseline `0.371752` |
 | Expert demonstrations | Planner-driven episodes with known task outcome | **PASS `[verified]`** — 5/5 `success`, `T = 360` actions / 365 observations, canonical `T+1`/`T` schema; smoothness `0.0077` vs random `0.6723` |
-| Train/validation | Held-out split, generalization assessed | **FAIL — next step (2.8.7); prerequisites are now met (`expert_episodes_delta.h5`), the split experiment itself is not run** |
-| Closed-loop execution | Policy drives `env.step` and task outcome known | **FAIL — not started (2.8.8)** |
-| Reusable inspection | `scripts/inspect_robot_dataset.py` runs independently | **ABSENT** `[verified]` |
+| Train/validation | Held-out split, generalization assessed | **PASS `[verified]`** — episode-level split, best validation MSE `0.2350` vs mean-action baseline `0.1421`; the assessment is a documented **negative** generalization result |
+| Closed-loop execution | Policy drives `env.step` and task outcome known | **PASS `[verified]`** — best checkpoint deployed with clipping on unseen seed 100; task **not** completed at 50 and 200 steps |
+| Reusable inspection | `scripts/inspect_robot_dataset.py` runs independently | **ABSENT `[verified]`** — the only unmet item of the project's own completion gate (declared complete by the learner; build it or waive it explicitly) |
 
 ## Immediate Next Steps
 
-Ordered. The next two steps finish Lesson 2; the third opens Lesson 3.
+Lesson 2 is closed. The next work is **data and theory**, not repair of the
+existing training code.
 
-1. **2.8.7 — 训练集与验证集.** Run the train/validation experiment:
-   - why training loss alone is insufficient;
-   - train/validation split and what a validation curve adds;
-   - generalization versus memorization, underfitting and overfitting;
-   - why a small model on 50 frames shows a decaying training loss that still
-     says nothing about the task;
-   - why random-action data cannot produce a valid policy.
-   A frame-level split on a single episode cannot be an honest held-out set. Note
-   the correction verified this session: on the **random fixture** the
-   "adjacent frames are nearly identical" premise does not hold (measured ratio
-   `1.04×`), while on the **expert episodes** it does (`8.8×`–`13.7×`). See
-   "3.1 leakage measurement is fixture-dependent".
-   The prerequisites are now in place: `datasets/pickcube/expert_episodes_delta.h5`
-   holds the five expert episodes in the fixture's delta semantics, in the
-   canonical `T+1`/`T` schema, and its replay reproduces the expert trajectory and
-   5/5 `success`. The remaining work is the experiment itself: build the
-   train/validation view over the converted episodes, split **by episode**, and
-   report the validation curve and its limits (5 episodes is still small).
-2. **2.8.8 — 策略部署与闭环执行.** `env state → policy(state) → predicted
-   action → env.step(action) → new state`; `model.train()` versus
-   `model.eval()`; `torch.no_grad()`; single-step prediction versus closed-loop
-   rollout; action clipping and simulation safety; deciding whether the policy
-   actually completes the task.
-3. **Lesson 3.1–3.4.** Move from a pipeline that runs to the theory of why a
-   low training loss still fails at execution: imitation-learning problem
-   definition, Behavior Cloning as supervised learning, generalization and
-   overfitting, and distribution shift. This is the transition to
-   `π_θ(a_t | o_t) ≈ π_E(a_t | o_t)`.
-   `notebooks/3.1_imitation_learning_intro.ipynb` already exists and executes
-   (3.1 problem definition, BC as supervised learning, a leakage measurement, and
-   a distribution-shift probe), but Lesson 3 formally starts after 2.8.7/2.8.8,
-   and the notebook's leakage cell needs the fixture correction noted above.
-
-Deferred, not blocking: the temporal contract, the missing
-`inspect_robot_dataset.py`, the per-field observation decomposition, and the
-`2.9` notebook-numbering mismatch.
+1. **Scale the expert dataset (30–50 episodes).** The current model is a failure
+   baseline because four training episodes cannot support generalization. Re-run
+   `scripts/generate_expert_demo.py` over a wider seed range, keep only
+   successful episodes (the collector already excludes failures), and keep the
+   same canonical `T+1`/`T` schema. Re-train with the **same episode-level
+   split** so the comparison against the current baseline is valid. Consider
+   converting with `scripts/convert_expert_actions_to_delta.py` if the data is to
+   be mixed with the delta fixture.
+2. **Lesson 3 — imitation learning and Behavior Cloning.** Enter from the real
+   result rather than a toy example: `3.1` problem definition, `3.2` BC as
+   supervised learning, `3.3` generalization/overfitting (now with measured
+   curves and a baseline), `3.4` distribution shift (now with `|z| = 13.2` on
+   held-out states and 199/200 clipped rollout steps). `notebooks/3.1` exists and
+   executes; its frame-level leakage cell should be re-pointed at the expert
+   episodes, where the ratio is `8.8×`–`13.7×`, instead of the random fixture
+   where it is `1.04×`.
+3. **Open gate item:** build `scripts/inspect_robot_dataset.py` (reusable
+   full-frame validation) or explicitly waive it in `AGENTS.md`.
+4. **Deferred, still open:** the 20 Hz versus declared 50 FPS temporal contract;
+   per-field observation deployability labels; the `2.9` notebook numbering
+   versus the `2.1`–`2.8.8` roadmap sequence.
 
 ## Session Log
+
+### 2026-09-22 — Lesson 2 closed: 2.8.7 and 2.8.8 verified as a negative result
+
+The learner completed 2.8.7 and 2.8.8 in `notebooks/2.8_check_data.ipynb` and asked
+for the result to be recorded without treating it as a training-code failure. It is
+not one: the code did exactly what the lesson needs.
+
+Verified by reading the executed cells (all 71 code cells ran, zero error outputs):
+
+- 2.8.7 split: **by episode** with `np.random.default_rng(seed=42)`; training
+  `episode_000000`–`000003` (284 samples), validation `episode_000004` (76);
+  normalization statistics from the training split only; `train_loader`
+  `shuffle=True`, `validation_loader` `shuffle=False`; the loader asserts
+  `len(observations) == len(actions) + 1`.
+- 2.8.7 result: training loss `1.3136 → 0.006`, validation `0.75`–`0.77` with a
+  best of `0.2350` at epoch 3, early stopping at epoch 40; the best model is
+  **worse than the mean-action baseline** (`0.1421`) by `0.0929`. Held-out states
+  reach `|z| = 13.21` on a dimension whose training std is `0.0088`.
+- 2.8.8 rollout: best checkpoint, `model.eval()`, training normalization reused,
+  actions clipped to `env.action_space` with per-step clipping counts, unseen
+  `seed=100`. The default `TimeLimit` caps episodes at 50 steps, so the wrapper's
+  `_max_episode_steps` was overridden to 200 to rule the time limit out. Both runs
+  report `Success: False`; the 200-step run earns `0.0` reward from about step 20
+  and is clipped on every step after the first.
+- 2.8.8 clipping per channel: `joint_2 / joint_4 / joint_6 / joint_7 / gripper`
+  `199/200`, `joint_1` `149/200`, `joint_3` `129/200`, `joint_5` `101/200`.
+
+Recorded interpretation: the model is a valid **failure baseline**, not a usable
+policy, and the training code is correct. Each behaviour is intended — loss falls,
+validation exposes overfitting, early stopping keeps the best epoch, the baseline
+comparison shows no generalization, clipping keeps outputs inside the control
+bounds, and the 50-versus-200 comparison excludes the time limit.
+
+Documentation changes:
+
+- `Current Position` now states Lesson 2 is complete, with 2.8.7 and 2.8.8 marked
+  `Complete [verified]`, and the formal record quoted in full;
+- new evidence blocks `2.8.7 — Train/validation split (episode-level)` and
+  `2.8.8 — Closed-loop deployment and rollout` carry the tables above;
+- the acceptance gate rows for train/validation and closed-loop execution changed
+  from `FAIL` to `PASS [verified]`, with the negative result stated explicitly;
+- `Immediate Next Steps` was replaced: the next phase is **data scaling**
+  (30–50 expert episodes, same episode-level split) plus Lesson 3, entering from
+  this measured result rather than a toy example. Repairing the training code is
+  explicitly **not** the task.
+- One gate item remains unmet and is recorded as such: the reusable
+  `scripts/inspect_robot_dataset.py` does not exist. Lesson 2 is declared complete
+  by the learner; the item is either to be built or explicitly waived.
+
+Not affected: no dataset, script, or notebook cell was modified in this session.
+The rollout numbers come from the notebook's own recorded outputs.
 
 ### 2026-09-22 — Condensed landscape appendix added; README aligned with the new direction
 

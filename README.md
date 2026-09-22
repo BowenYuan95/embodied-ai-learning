@@ -8,7 +8,7 @@ The project follows two principles:
 2. Treat dataset semantics—state, action, frame, timing, embodiment, and source—as first-class engineering concerns.
 3. Move from reactive `observation → action` policies toward agents that represent task phase, memory, prerequisites, progress, and recovery — including re-entering steps that a strict one-directional plan cannot express.
 
-> **Current status:** Lesson 2 is in its closing phase. The trajectory → HDF5 → LeRobot pipeline and read-back validation are done, a minimal BC training loop runs end to end, and five planner-generated expert episodes are recorded in the canonical `T+1` observations / `T` actions schema (`datasets/pickcube/expert_episodes.h5`). Their actions have been retargeted into the fixture's `pd_joint_delta_pos` semantics (`expert_episodes_delta.h5`) and replay-verified with **5/5 task success**. Notebook notes are in Chinese with English technical terms. Next: 2.8.7 train/validation (split **by episode**), then 2.8.8 closed-loop execution — the closed loop comes before any task-intelligence layer. See `notes/progress.md`.
+> **Current status:** **Lesson 2 is complete.** The trajectory → HDF5 → LeRobot pipeline and read-back validation are done; a minimal BC baseline trains, is evaluated on a held-out episode, and has been deployed in closed loop. The result is a documented **negative** one: best validation MSE `0.2350` is worse than the mean-action baseline `0.1421`, and on unseen `seed=100` the policy never completes the task, saturating the action bounds on `199/200` steps. The training code is correct — the model is a failure baseline, not a usable policy. Five planner-generated expert episodes are recorded in the canonical `T+1` / `T` schema, with a delta-semantics retargeted copy (`expert_episodes_delta.h5`) verified at 5/5 replay success. Notebook notes are in Chinese with English technical terms. Next phase: **data scaling** (30–50 expert episodes, same episode-level split) and Lesson 3, entering from this measured result. See `notes/progress.md`.
 
 ## Project Context
 
@@ -70,9 +70,16 @@ The initial task is `PickCube-v1`. Later stages introduce a planar pushing task,
 | Trajectory replay | Verified (fixture and expert) | Random fixture replays with `0.0` observation/reward error; expert episodes replay exactly, and the retargeted delta actions reproduce the expert trajectory with 5/5 task success. Synthetic timestamps still need correction (50 Hz declared vs 20 Hz actual). |
 | Expert data contract | Complete (2.9) | Collector writes `T+1` observations / `T` actions, asserts the control mode, and excludes failed episodes; the post-action-offset and failure-persistence defects were fixed and the dataset regenerated |
 | Minimal BC training | Complete | MLP `42→128→128→8`, MSE, Adam; training loss `0.346221 → 0.105965` over 100 epochs |
-| Train/validation split | Next (2.8.7) | Five retargeted expert episodes are ready; the split must be **by episode**. The frame-level leakage measurement holds for smooth trajectories (ratio ≈9–14×) but not for the random fixture (≈1×) |
-| Closed-loop execution | Planned (2.8.8) | The trained MLP has never driven `env.step` |
+| Episode-level train/validation | Complete (2.8.7) | 4 training episodes (284 samples) / 1 validation episode (76); training loss `1.3136 → 0.006` while validation stayed at `0.75`–`0.77`; best validation MSE `0.2350` **worse** than the mean-action baseline `0.1421`; early stopping kept epoch 3 |
+| Closed-loop execution | Complete (2.8.8) | Best checkpoint deployed with action clipping on unseen `seed=100`; task **not** completed at 50 or 200 steps; `199/200` steps had clipped action channels, which rules out the episode time limit as the cause |
 | Expert demonstrations | Complete (2.9) | Motion planner drives `PickCube-v1`; **5/5 episodes succeed**. Expert action smoothness `|Δa| 0.0078` vs random `0.67` |
+
+**Lesson 2 result:** the BC model fitted the training demonstrations but did not
+generalize to an unseen episode, and the closed-loop rollout confirms it cannot
+complete the task. The training code is correct; the model is a documented
+**failure baseline**, not a usable policy. Reaching a usable policy is a data
+problem next: at least 30–50 expert episodes, re-trained with the same
+episode-level split.
 
 ## Current Dataset
 
@@ -339,8 +346,9 @@ The roadmap now has four parallel capability tracks:
 - [x] Replay the source trajectory and compare observations/rewards
 - [ ] Resolve the declared-FPS versus real-control-rate temporal contract
 - [ ] Add a reusable robot-dataset inspection script
-- [ ] Split training and validation data (2.8.7)
-- [ ] Execute the policy in closed loop (2.8.8)
+- [x] Split training and validation data by episode, with early stopping and a baseline (2.8.7)
+- [x] Execute the policy in closed loop with action clipping and document the outcome (2.8.8)
+- [ ] Scale the expert dataset to 30–50 episodes and re-train against the current failure baseline
 - [ ] Compare BC, ACT, and Diffusion Policy
 - [ ] Add language-conditioned multi-task data
 - [ ] Build a ManiSkill-to-VLA adapter
@@ -431,4 +439,4 @@ This direction connects prior experience in XR interaction, first-person sensing
 
 ## Project Status
 
-This is an active learning and engineering repository. The current execution point remains the end of Lesson 2; the strategic shift does not skip the required BC and closed-loop foundations. Interfaces and schemas may change as experiments move from state-based simulation toward multimodal VLA policies, task memory, world models, VR demonstrations, and real-robot data.
+This is an active learning and engineering repository. **Lesson 2 is complete**: the data path, the minimal BC baseline, the held-out evaluation, and the closed-loop deployment all exist and all report honestly, and the resulting model is a documented failure baseline rather than a usable policy. The strategic shift does not skip those foundations — it builds on them. Interfaces and schemas may change as experiments move from state-based simulation toward multimodal VLA policies, task memory, world models, VR demonstrations, and real-robot data.

@@ -130,7 +130,6 @@ embodied-ai-learning/
 ├── docs/
 │   └── roadmap_v3.md
 ├── environment/
-│   ├── setup_linux.sh
 │   └── setup_linux_v3.sh
 ├── notebooks/
 │   ├── 0_environment_check.ipynb
@@ -241,9 +240,13 @@ cd embodied-ai-learning
 Run the environment setup script:
 
 ```bash
-bash environment/setup_linux.sh
+bash environment/setup_linux_v3.sh
 conda activate embodied
 ```
+
+`setup_linux_v3.sh` is the only setup script; it parameterizes the environment
+name, Python and PyTorch versions, and the CUDA wheel. The earlier
+`setup_linux.sh` was deleted once v3 superseded it (see `archive/README.md`).
 
 Verify the environment:
 

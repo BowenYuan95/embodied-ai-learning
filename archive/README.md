@@ -85,6 +85,7 @@ robustness or Sim2Real lesson, but they are not part of Lesson 0, 1, or 2.
 | `perception_noise_task_tolerance.py` | Compared noise levels against task tolerances | Exploratory |
 | `test_mplib_panda.py` | Constructed an `mplib.Planner` directly from the Panda URDF/SRDF with hard-coded absolute paths | Debug probe |
 | `test_planner.py` | Printed the Panda URDF/SRDF paths, links, and joints to set up that planner | Debug probe |
+| `test_pick_cube_expert.py` | Ran ManiSkill's stock `pick_cube` solver end to end with `render_mode="human"` and printed `env.unwrapped.evaluate()` | Debug probe — superseded by `scripts/generate_expert_demo.py` (batch collection in `embodied310`) and by `notebooks/2.8_check_data.ipynb` / `2.9_expert_demonstrations.ipynb`. It has no `main` guard, so it executes on import and cannot be inspected safely |
 
 `test_mplib_panda.py` and `test_planner.py` were written while diagnosing why
 ManiSkill's motion planner fails. That diagnosis is now settled and was **not** what
@@ -101,3 +102,13 @@ Before reusing any of the perception-noise scripts, re-derive the conclusion
 rather than trusting the recorded numbers: the noise model and tolerance values
 were chosen for exploration, not calibrated against the real PickCube success
 threshold.
+
+## Deleted rather than archived
+
+`environment/setup_linux.sh` (the first Linux setup script) was **deleted** on
+2026-09-22 at the learner's instruction, after `environment/setup_linux_v3.sh`
+superseded it completely: the v3 script parameterizes the environment name,
+Python and PyTorch versions, pins the CUDA wheel, and adds `set -Eeuo pipefail`.
+Nothing was archived because the old script contributed no behaviour that v3
+lacks; recover it from Git history if an old installation needs to be reproduced
+(`git log -- environment/setup_linux.sh`).

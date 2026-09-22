@@ -813,6 +813,41 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-22 — Repository cleanup: build artifacts, old setup script, planner probe
+
+Housekeeping before a break, decided item by item by the learner.
+
+- Removed regenerable build artifacts: `scripts/__pycache__/` and
+  `scripts/pipeline/__pycache__/` (`208 KiB`), including stale `.pyc` files for
+  scripts that were archived earlier (`dataset_report`, `validate_maniskill_rollout`,
+  `compare_random_datasets`, `test_observation_adapter`). No source file was
+  touched; `__pycache__` is already in `.gitignore`.
+- Deleted the session's temporary comparison snapshots outside the repository
+  (`/tmp/nb_before_translation/`, `2.8_before_notes.ipynb`,
+  `2.6_before_shuffle_fix.ipynb`, `expert_episodes_oldschema.h5`); the equivalence
+  checks they supported are recorded in this file and in Git history.
+- Normalized the local permissions of the four scripts created or rewritten this
+  session from `600` to `644`. Git records `100644` for all of them either way.
+- `environment/setup_linux.sh` — **deleted** (作废), because
+  `environment/setup_linux_v3.sh` supersedes it completely (parameterized
+  environment name, Python/PyTorch versions, pinned CUDA wheel, `set -Eeuo
+  pipefail`). `README.md` now points at the v3 script, and `archive/README.md`
+  records the deletion and how to recover the file from Git history.
+- `scripts/test_pick_cube_expert.py` — **archived** to
+  `archive/offroadmap/test_pick_cube_expert.py` and recorded in the
+  `offroadmap/` table. It ran the stock `pick_cube` solver with
+  `render_mode="human"`, has no `main` guard (it executes on import), and is
+  superseded by `scripts/generate_expert_demo.py` plus notebooks 2.8 / 2.9.
+
+Left in place deliberately: `datasets/` (the Lesson 3 evidence), the BC
+checkpoint that the two verification scripts load, the Hugging Face cache,
+`archive/`, `scripts/figures/`, `scripts/reports/`, and `.idea/`.
+
+Verification: `git status` clean before the change, no stray `*.log`/`*.bak`/
+`*.orig`/`.DS_Store` files, the two verification scripts still start after
+cleanup, and no dangling references to the deleted or moved paths remain outside
+the archive's own record of them.
+
 ### 2026-09-22 — Lesson 2 closed; its follow-ups abandoned; Lesson 3 is the current phase
 
 The learner confirmed that the Lesson 2 thread is finished and that the old

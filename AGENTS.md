@@ -62,6 +62,38 @@ in English. This is a durable learner preference, not a one-off request.
 - English remains correct for `README.md`, `notes/*.md`, `docs/*.md`, code
   comments, and commit messages.
 
+## Teaching Protocol
+
+The learner is here to learn, not only to obtain working code. Every
+recommendation, proposal, or correction must carry its teaching dimension.
+When suggesting what to do next, say:
+
+1. **What it teaches** — the concepts the step exercises.
+2. **Why now** — how it fits the P0/P1/P2 order and what it unblocks.
+3. **Acceptance evidence** — what will demonstrate it worked, and what it will
+   *not* prove.
+4. **Self-check questions** — what the learner should be able to explain in their
+   own words afterwards.
+5. **Research connection** — how it feeds the long-term direction, when that
+   connection is real rather than decorative.
+
+Further expectations:
+
+- Explain the problem a technique solves and what fails without it, before
+  showing the technique. Build the mental model, not only the code path.
+- Prefer concept-driven reproduction over checkpoint-only reproduction: running a
+  model is not the goal; explaining its architecture, objective, and action
+  representation is.
+- When correcting the learner, state the corrected principle, not only the
+  corrected value, and say why the original reasoning was close but incomplete.
+- When several next steps are plausible, compare them by learning value and
+  sequence them, rather than listing options without a recommendation.
+- Keep the learner's existing strengths (data semantics, task segmentation,
+  human-state modelling) in the loop; connect new material to what they already
+  understand instead of assuming a robotics background.
+- Do not let a step end at "it runs". Close with what was learned, what remains
+  unexplained, and the next question worth asking.
+
 ## Sources of Truth
 
 Use these files in this order:

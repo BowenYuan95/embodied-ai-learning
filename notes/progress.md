@@ -802,6 +802,25 @@ existing training code.
 
 ## Session Log
 
+### 2026-09-22 — Teaching Protocol added to `AGENTS.md`
+
+The learner asked that suggestions be teaching-oriented: this is a learning
+project, so a recommendation should explain what it teaches, not only what to do.
+Recorded as a new `## Teaching Protocol` section in `AGENTS.md` so every future
+session inherits it.
+
+The protocol requires each proposal to state: **what it teaches**, **why now**
+relative to the P0/P1/P2 priorities, **the acceptance evidence** and what that
+evidence will *not* prove, **self-check questions** the learner should be able to
+answer afterwards, and **the research connection** where one is real. It also
+requires explaining the problem a technique solves before showing the technique,
+correcting principles rather than only values, comparing candidate next steps by
+learning value instead of listing them, and never ending a step at "it runs".
+
+Consequence for this file: `Immediate Next Steps` stays a status list, while the
+teaching framing for the next experiment is given in conversation and, where it
+becomes durable, in `notes/concepts.md`.
+
 ### 2026-09-22 — BC gate items 5 and 7 closed by two fresh-process scripts
 
 The expanded `AGENTS.md` adds a BC closed-loop gate. Two of its eight items were

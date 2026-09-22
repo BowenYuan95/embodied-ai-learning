@@ -6,9 +6,9 @@ The project follows two principles:
 
 1. Learn each concept through a working embodied-agent loop rather than isolated model code.
 2. Treat dataset semantics—state, action, frame, timing, embodiment, and source—as first-class engineering concerns.
-3. Move from reactive `observation → action` policies toward agents that represent task phase, memory, dependencies, progress, and recovery.
+3. Move from reactive `observation → action` policies toward agents that represent task phase, memory, prerequisites, progress, and recovery — including re-entering steps that a strict one-directional plan cannot express.
 
-> **Current status:** Lesson 2 is in its closing phase (sub-steps 2.1–2.8.6 complete, plus 2.9 expert demonstrations). The trajectory → HDF5 → LeRobot pipeline and read-back validation are done, a minimal BC training loop runs end to end, and five planner-generated expert episodes are recorded in the canonical `T+1` observations / `T` actions schema. The expert actions have been retargeted into the fixture's `pd_joint_delta_pos` semantics (`datasets/pickcube/expert_episodes_delta.h5`), replay-verified with 5/5 success. Next: 2.8.7 train/validation on that data, then 2.8.8 closed-loop execution. See `notes/progress.md`.
+> **Current status:** Lesson 2 is in its closing phase. The trajectory → HDF5 → LeRobot pipeline and read-back validation are done, a minimal BC training loop runs end to end, and five planner-generated expert episodes are recorded in the canonical `T+1` observations / `T` actions schema (`datasets/pickcube/expert_episodes.h5`). Their actions have been retargeted into the fixture's `pd_joint_delta_pos` semantics (`expert_episodes_delta.h5`) and replay-verified with **5/5 task success**. Notebook notes are in Chinese with English technical terms. Next: 2.8.7 train/validation (split **by episode**), then 2.8.8 closed-loop execution — the closed loop comes before any task-intelligence layer. See `notes/progress.md`.
 
 ## Project Context
 
@@ -25,11 +25,14 @@ progress documents.
 
 - Understand the complete loop from observation and robot state to policy action and environment transition.
 - Strengthen practical deep-learning foundations: PyTorch training, Transformer sequence modeling, multimodal representation, fine-tuning, and evaluation.
+- Understand the action-policy families as a progression: Behavior Cloning → action chunking (ACT) → Diffusion Policy → flow matching (`π0`-style action experts).
 - Build a reproducible ManiSkill experimentation environment.
 - Convert simulation trajectories into a well-specified robot-learning dataset.
 - Train and compare Behavior Cloning, ACT, Diffusion Policy, and VLA-based policies.
-- Extract task phases, skills, subgoals, and dependency graphs from demonstrations.
-- Build persistent task state and episodic/procedural memory for long-horizon execution.
+- Explain how a VLA turns image, language, and state tokens into actions, and why action representation decides whether robot data can be mixed.
+- Extract task phases, skills, subgoals, and prerequisite relations from demonstrations.
+- Track explicit task state, including retry, recovery, and re-entry into already-completed steps.
+- Build persistent episodic/procedural memory for long-horizon execution.
 - Distinguish physical dynamics models from task world models and connect both to planning.
 - Condition policy/VLA execution on instruction, current task state, memory, and subgoal.
 - Align simulation, VR teleoperation, and real-robot data through a shared schema.
@@ -41,12 +44,13 @@ progress documents.
 ```mermaid
 flowchart TD
     A["Human / robot demonstration"] --> B["Aligned multimodal dataset"]
-    B --> C["Task segmentation + graph"]
+    B --> C["Task segmentation + prerequisite relations"]
     C --> D["Task state + memory"]
     D --> E["VLA / learned policy"]
     E --> F["Closed-loop execution"]
     F --> G["Progress + failure detection"]
     G --> H["Recovery / data update"]
+    H --> C
     H --> B
 ```
 
@@ -63,9 +67,10 @@ The initial task is `PickCube-v1`. Later stages introduce a planar pushing task,
 | Observation semantics | Complete | 42-dimensional state vector decomposed and documented |
 | Action semantics | Complete | The 8-d action is two semantics: arm joint-position **deltas** in `[-0.1,0.1]` rad, and an **absolute** gripper position target in `[-0.01,0.04]` |
 | LeRobot conversion | Complete | `dataset[0]` and `DataLoader` read-back verified locally; counts, dtypes, and shapes checked |
-| Trajectory replay | Source replay verified | All 50 observations/rewards match; no task success; time-limit truncation. Synthetic timestamps still need correction (50 Hz declared vs 20 Hz actual). |
+| Trajectory replay | Verified (fixture and expert) | Random fixture replays with `0.0` observation/reward error; expert episodes replay exactly, and the retargeted delta actions reproduce the expert trajectory with 5/5 task success. Synthetic timestamps still need correction (50 Hz declared vs 20 Hz actual). |
+| Expert data contract | Complete (2.9) | Collector writes `T+1` observations / `T` actions, asserts the control mode, and excludes failed episodes; the post-action-offset and failure-persistence defects were fixed and the dataset regenerated |
 | Minimal BC training | Complete | MLP `42→128→128→8`, MSE, Adam; training loss `0.346221 → 0.105965` over 100 epochs |
-| Train/validation split | Next (2.8.7) | Generalization cannot be assessed yet: one episode, 50 frames, no held-out data |
+| Train/validation split | Next (2.8.7) | Five retargeted expert episodes are ready; the split must be **by episode**. The frame-level leakage measurement holds for smooth trajectories (ratio ≈9–14×) but not for the random fixture (≈1×) |
 | Closed-loop execution | Planned (2.8.8) | The trained MLP has never driven `env.step` |
 | Expert demonstrations | Complete (2.9) | Motion planner drives `PickCube-v1`; **5/5 episodes succeed**. Expert action smoothness `|Δa| 0.0078` vs random `0.67` |
 
@@ -341,7 +346,7 @@ The roadmap now has four parallel capability tracks:
 - [ ] Build a ManiSkill-to-VLA adapter
 - [ ] Reproduce and trace a VLA inference/fine-tuning pipeline
 - [ ] Label or infer task phases, skills, and subgoals from trajectories
-- [ ] Build a dependency-aware task graph and explicit task-state tracker
+- [ ] Build explicit task-state tracking over prerequisite relations (retry, recovery, and re-entry into completed steps must be representable)
 - [ ] Add episodic/procedural memory and failure retrieval
 - [ ] Compare reactive VLA with task-memory-conditioned VLA
 - [ ] Train a physical dynamics model and a task-state transition model
@@ -350,6 +355,54 @@ The roadmap now has four parallel capability tracks:
 - [ ] Evaluate Sim2Real and Real2Sim workflows
 - [ ] Evaluate long-horizon progress, recovery, and unnecessary intervention
 - [ ] Build a failure-to-memory/data-to-retraining loop
+
+## Research Direction
+
+The target is not another VLA and not a video-generation world model. It is the
+**task-intelligence layer** between foundation models and action: explicit task
+state, episodic/procedural memory, task-level prediction, recovery, and
+intervention.
+
+```text
+foundation perception / semantics
+  + persistent task state
+  + episodic and procedural memory
+  + task world model
+  + planner
+  + learned skill policy
+  + adaptive controller
+  + independent safety monitor
+```
+
+A reactive VLA maps `(image, language, robot state)` to an action chunk but does
+not represent *why* the action is appropriate, *where* in the task execution
+currently is, *what* remains, *what to do* when a step fails or is performed
+off-camera, or *whether* the human needs help. Those are task-level questions, and
+the published record shows they are not solved by scale alone.
+
+> Human-centered embodied agents that learn, reason about, and assist long-horizon
+> tasks through multimodal observation and interactive guidance.
+
+Study order (full P0/P1/P2 stack and the condensed reading list in
+`notes/concepts.md`):
+
+1. **Closed loop first** — 2.8.7 train/validation and 2.8.8 closed-loop execution,
+   including covariate shift and compounding error.
+2. **Foundations** — deep learning and Transformer mechanics; Behavior Cloning →
+   action chunking → diffusion → flow matching.
+3. **VLA anatomy** — how image, language, and state tokens become actions, using a
+   concrete open system as the dissection object.
+4. **Task intelligence** — task representation and task state, memory, task-level
+   world model, planning and recovery, and calibrated intervention.
+
+Task state must tolerate **cycles and re-entry**: retry after failure, recovery,
+backtracking, and iteration all return to steps that were already completed, so
+"what may run next" is recomputed from the current state rather than derived once
+from a fixed ordering.
+
+Deliberately out of scope for now: ROS 2, SLAM, low-level control theory,
+large-scale RL, and pixel-level world models. They are substrate, adopted only
+when an experiment requires them.
 
 ## Longer-Term Direction
 

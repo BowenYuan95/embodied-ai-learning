@@ -588,6 +588,107 @@ execution), then Transformer and action-policy study against a concrete system
 (OpenVLA as the dissection object), then the task-intelligence layer, where
 existing strengths apply.
 
+## Landscape Reading List (Condensed)
+
+A short pointer list for the study order above: three to five systems per
+direction and one conclusion each. Venues and years follow the learner's survey
+and are reading pointers, not independently audited citations; numerical results
+are deliberately omitted and should be checked at the source.
+
+### 1. Language grounding and the cost of structural shortcuts
+
+- R2R / Vision-and-Language Navigation (CVPR 2018)
+- Speaker-Follower (NeurIPS 2018)
+- VLN-CE / Beyond the Nav-Graph (ECCV 2020)
+- HAMT (NeurIPS 2021)
+
+**Conclusion:** instruction following looked nearly solved while the benchmark
+supplied the structure (known connectivity, discrete viewpoints, good
+localization); removing those assumptions exposes perception and state estimation
+as the actual content.
+
+### 2. Mapping, modularity, and scale
+
+- Active Neural SLAM (ICLR 2020)
+- Goal-Oriented Semantic Exploration (NeurIPS 2020)
+- DD-PPO (ICLR 2020)
+- Habitat 2.0 (NeurIPS 2021)
+
+**Conclusion:** explicit spatial memory plus a classical planner beat end-to-end
+learning at comparable data, and brute-force scale solved a narrow task but not
+long-horizon skill hand-offs.
+
+### 3. Imitation learning and generative action
+
+- What Matters in Learning from Offline Human Demonstrations / robomimic (CoRL 2021)
+- BC-Z (CoRL 2021)
+- Diffusion Policy (RSS 2023)
+- ACT (RSS 2023)
+- `π0`: A Vision-Language-Action Flow Model (2024) — [paper](https://ar5iv.labs.arxiv.org/html/2410.24164)
+
+**Conclusion:** in offline imitation, data regime and quality dominate
+architecture; generative and chunked action heads exist because manipulation
+actions are multimodal and temporally correlated, not because regression is
+slightly worse.
+
+### 4. Generalist policies and cross-embodiment transfer
+
+- RT-1 (RSS 2023) and RT-2 (CoRL 2023)
+- Octo (RSS 2024)
+- OpenVLA (CoRL 2024)
+- RDT-1B (ICLR 2025)
+
+**Conclusion:** semantic priors transfer across tasks and robots; what limits
+transfer is action representation and data-mixture compatibility, not parameter
+count.
+
+### 5. Prediction as a policy ingredient
+
+- DayDreamer (CoRL 2022)
+- 3D-VLA (ICML 2024)
+
+**Conclusion:** learned prediction pays off when it models something the policy
+can act on; the entry point for this project is task-level transition prediction,
+not pixels.
+
+### 6. Sim-to-real: randomization and adaptation
+
+- Learning Dexterity (OpenAI, 2018)
+- RMA (RSS 2021)
+
+**Conclusion:** randomization covers variation anticipated at training time;
+long-lived deployment also drifts, which favours fast online adaptation of a
+bounded controller behind a safety layer.
+
+### 7. Long-horizon, human-robot, and multi-agent evaluation
+
+- Habitat 3.0 (ICLR 2024)
+- PARTNR (ICLR 2025)
+
+**Conclusion:** strong contemporary planners still fail at task tracking,
+coordination, and error recovery — precisely the gap a task-state and memory layer
+targets, and the reason reliability metrics matter more than nominal success.
+
+### 8. Task structure and task state from human activity
+
+- Differentiable Task Graph Learning: Procedural Activity Representation and Online
+  Mistake Detection from Egocentric Videos (NeurIPS 2024) —
+  [paper](https://neurips.cc/virtual/2024/poster/96827)
+
+**Conclusion:** task structure can be learned from first-person video and used for
+online mistake detection, which validates studying task structure and task state
+rather than only policy outputs; check whether its ordering assumptions survive
+retry and recovery, since re-entry is the case real execution keeps producing.
+
+### 9. Data engines and infrastructure
+
+- ProcTHOR (NeurIPS 2022), RoboCasa (RSS 2024)
+- Habitat (simulation and task stack), Isaac Lab (GPU-parallel control), MuJoCo
+  (contact-rich physics)
+
+**Conclusion:** scene and task diversity is the strategic asset; the simulator is
+chosen per experiment, and none of them should become the research contribution.
+
 ## Current Engineering Decision
 
 The initial fixed task is `PickCube-v1`. Keep it as the main environment while

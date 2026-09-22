@@ -722,6 +722,55 @@ Deferred, not blocking: the temporal contract, the missing
 
 ## Session Log
 
+### 2026-09-22 — Condensed landscape appendix added; README aligned with the new direction
+
+Added the shorter reading list that was offered with the research-direction merge,
+and brought `README.md` in line with the current concepts and repository state.
+
+`notes/concepts.md`, new `## Landscape Reading List (Condensed)` — nine directions,
+three to five systems each, one conclusion each, no benchmark numbers:
+
+1. language grounding and the cost of structural shortcuts; 2. mapping, modularity,
+scaling; 3. imitation learning and generative action; 4. generalist policies and
+cross-embodiment transfer; 5. prediction as a policy ingredient; 6. sim-to-real
+randomization versus adaptation; 7. long-horizon, human-robot, multi-agent
+evaluation; 8. task structure and task state from human activity; 9. data engines
+and infrastructure. Venues and years are labelled as reading pointers rather than
+audited citations.
+
+Two references were checked on the web before being written down
+(`[verified]` for existence and framing, not for results):
+
+- Differentiable Task Graph Learning: Procedural Activity Representation and
+  Online Mistake Detection from Egocentric Videos, NeurIPS 2024 —
+  <https://neurips.cc/virtual/2024/poster/96827>
+- `π0`: A Vision-Language-Action Flow Model for General Robot Control —
+  <https://ar5iv.labs.arxiv.org/html/2410.24164>
+
+`README.md` updates:
+
+- principle 3 now says re-entering steps that a strictly one-directional plan
+  cannot express;
+- the pipeline diagram became `Task segmentation + prerequisite relations`, and
+  recovery now loops back into segmentation as well as into the dataset;
+- goals gained the action-policy progression (BC → ACT → Diffusion → flow
+  matching), VLA anatomy, action representation as a compatibility question, and
+  task-state tracking that includes retry/recovery/re-entry;
+- the status line records the canonical expert schema, the retargeting, the 5/5
+  replay result, the Chinese notebook convention, and that the closed loop comes
+  before any task-intelligence layer;
+- the progress table gained an "Expert data contract" row and refreshed the
+  replay and train/validation rows (episode-level split; the leakage measurement
+  holds for smooth trajectories, not for the random fixture);
+- the roadmap checklist item became "explicit task-state tracking over
+  prerequisite relations (retry, recovery, and re-entry must be representable)";
+- a new `## Research Direction` section states the target layer, the layered
+  architecture, the positioning sentence, the four-step study order, the
+  cycles/re-entry requirement, and the deliberately out-of-scope substrate.
+
+Nothing was changed in `docs/roadmap_v3.md` beyond the earlier acyclic-wording
+fix.
+
 ### 2026-09-22 — Acyclicity correction: DAG is not the same as a dependency graph
 
 The learner corrected the scope of the rejected design: **`DAG` here means

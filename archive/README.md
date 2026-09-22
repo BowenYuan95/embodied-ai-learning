@@ -41,13 +41,27 @@ conversion path.
 | File | What it did | Superseded by |
 |---|---|---|
 | `convert_maniskill_to_lerobot.py` | Standalone HDF5 to LeRobot v3 conversion with hard-coded features | `scripts/run_pipeline.py`, which drives `scripts/pipeline/` through load, validate, convert, post-validate, report, and manifest |
+| `validate_maniskill_rollout.py` | Checked shapes, field-length consistency, `next_observations` continuity, state change, episode semantics, and `elapsed_steps` | The "Validate the trajectory files" cells in `notebooks/2.4_observation_schema.ipynb`, which run the same checks on all three HDF5 files |
+| `compare_random_datasets.py` | Compared the synthetic and original rollout variants statistically | The dataset-lineage and shape-comparison cells in `notebooks/2.4_observation_schema.ipynb` |
+| `dataset_report.py` | Standalone HDF5 overview, reward/action/temporal statistics, integrity checks, and action-curve plots | `scripts/pipeline/reporter.py`, which performs the same 13 functions as part of conversion rather than as a separate script. Only `main`, `load_h5`, and `run_quality_checks` were standalone orchestration |
+| `test_observation_adapter.py` | Asserted the 28-d / 14-d deployable-versus-privileged partition sums to 42 | The same assertion, in place, in `notebooks/1.1_state_and_observation.ipynb` |
 
-The remaining Lesson 2 tools stay in `scripts/` because the lesson is not
-finished: `collect_pickcube_random_rollout.py`, `validate_maniskill_rollout.py`,
-`compare_random_datasets.py`, `dataset_report.py`, and
-`replay_pickcube_episode.py`. In particular, `replay_pickcube_episode.py` is the
-tool that produced the source-replay evidence required by the Lesson 2
-acceptance gate, so it must remain runnable.
+The Lesson 2 tools that remain in `scripts/` are the ones that produce data or prove
+the acceptance gate: `collect_pickcube_random_rollout.py` (source data),
+`replay_pickcube_episode.py` (the replay evidence required by the acceptance gate),
+`run_pipeline.py` with `scripts/pipeline/` (the conversion and quality gate),
+`observation_adapter.py` (the deployable-versus-privileged partition), and
+`build_lesson_notebooks.py` (notebook generation).
+
+### Why the reporting script was retired rather than kept
+
+`dataset_report.py` and `scripts/pipeline/reporter.py` shared 13 of their 16
+functions verbatim, including `randomness_diagnostic`, which produces the
+"actions are random, not expert" conclusion. Keeping both meant two implementations
+of every quality metric, and the pipeline — not the standalone script — is what
+actually runs. Its generated artifacts (`scripts/figures/`, `scripts/reports/`) are
+still on disk and are still written to those paths by `pipeline/reporter.py`, so
+retiring the script does not orphan them.
 
 ## `offroadmap/` — exploratory work outside the curriculum
 
@@ -61,7 +75,21 @@ robustness or Sim2Real lesson, but they are not part of Lesson 0, 1, or 2.
 | `simulate_perception_noise.py` | Injected Gaussian noise into `state_dict` poses inside ManiSkill | Exploratory |
 | `perception_noise_monte_carlo.py` | Analytic Monte Carlo over noise levels in millimetres | Exploratory |
 | `perception_noise_task_tolerance.py` | Compared noise levels against task tolerances | Exploratory |
+| `test_mplib_panda.py` | Constructed an `mplib.Planner` directly from the Panda URDF/SRDF with hard-coded absolute paths | Debug probe |
+| `test_planner.py` | Printed the Panda URDF/SRDF paths, links, and joints to set up that planner | Debug probe |
 
-Before reusing any of these, re-derive the conclusion rather than trusting the
-recorded numbers: the noise model and tolerance values were chosen for
-exploration, not calibrated against the real PickCube success threshold.
+`test_mplib_panda.py` and `test_planner.py` were written while diagnosing why
+ManiSkill's motion planner fails. That diagnosis is now settled and was **not** what
+was first assumed: constructing `PandaArmMotionPlanningSolver` segfaults inside
+`mplib/planner.py:65` because **`mplib` 0.1.1 is built against the NumPy 1.x C API
+while NumPy 2.x was installed**, so the constructor calls through an invalid function
+pointer to address `0x0`. It is an ABI mismatch, not a GPU or backend problem — the
+crash reproduces on CPU, and the same script succeeds under `numpy 1.26.4`. The fix is
+`numpy<2` in a planning environment; `mplib` cannot be upgraded because ManiSkill 3.0.1
+pins `==0.1.1`. Both probes hard-code the path of one specific conda environment and
+are not portable; re-derive rather than re-run them.
+
+Before reusing any of the perception-noise scripts, re-derive the conclusion
+rather than trusting the recorded numbers: the noise model and tolerance values
+were chosen for exploration, not calibrated against the real PickCube success
+threshold.

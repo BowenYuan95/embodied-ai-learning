@@ -1,12 +1,6 @@
 import gymnasium as gym
 import mani_skill.envs
 
-from mani_skill.examples.motionplanning.panda.motionplanner import (
-    PandaArmMotionPlanningSolver
-)
-
-
-# Create environment
 
 env = gym.make(
     "PickCube-v1",
@@ -15,37 +9,35 @@ env = gym.make(
 )
 
 
-# Remove wrapper
+env.reset()
 
 real_env = env.unwrapped
 
 
-# Reset
-
-obs, info = real_env.reset()
+agent = real_env.agent
 
 
-print("Environment ready")
+print("========================")
+print("URDF:")
+print(agent.urdf_path)
 
 
-# Get robot base pose
-
-robot_base_pose = real_env.agent.robot.pose
-
-
-print("Robot pose:")
-print(robot_base_pose)
-
-
-print("Creating planner...")
-
-
-planner = PandaArmMotionPlanningSolver(
-    real_env,
-    debug=False,
-    vis=False,
-    base_pose=robot_base_pose
+print("========================")
+print("SRDF:")
+print(
+    agent.urdf_path.replace(".urdf", ".srdf")
 )
 
 
-print("Planner created!")
+print("========================")
+print("Links:")
+
+for link in agent.robot.get_links():
+    print(link.get_name())
+
+
+print("========================")
+print("Joints:")
+
+for joint in agent.robot.get_active_joints():
+    print(joint.get_name())

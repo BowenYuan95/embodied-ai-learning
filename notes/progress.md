@@ -187,26 +187,92 @@ frames are **not** complete; that is the job of the still-missing
 
 ## Action Specification
 
-`[verified]` from `conversion_manifest.json`. This supersedes the earlier
-statement that action semantics were undocumented:
+`[verified]` by polling the live `PickCube-v1` controller configuration with
+`control_mode="pd_joint_delta_pos"` and by stepping the environment with known
+actions.
 
-| Component | Dims | Controller | Semantics |
-|---|---:|---|---|
-| Arm | 7 | `PDJointPosController` | normalized joint position target |
-| Gripper | 1 | `PDJointPosMimicController` | continuous normalized position target |
-| **Total** | **8** | | range `[-1.0, 1.0]` |
+**The 8-d action is not one uniform semantic space.** It is two different
+commands concatenated:
 
-Note the naming gap between 2.2 and the manifest: the lesson describes the
-current control mode as `pd_joint_delta_pos`, while the conversion manifest
-records `PDJointPosController` with normalized joint position targets. These
-describe related but distinct semantics (delta versus absolute target). This
-must be resolved by reading the collector's actual controller configuration
-before any action-semantics claim is reused for training or cross-embodiment
-work. `[open]`
+| Indices | Dims | Controller | Semantics | Physical range | Unit |
+|---|---:|---|---|---|---|
+| `action[0:7]` | 7 | `PDJointPosController` | normalized joint position **delta** relative to current `qpos` | `[-0.1, 0.1]` | rad |
+| `action[7]` | 1 | `PDJointPosMimicController` | normalized **absolute** gripper joint position target | `[-0.01, 0.04]` | m |
+| **Total** | **8** | | action space `Box(-1, 1, (8,), float32)` | | |
 
-Still missing for a complete contract: control frequency actually used, the
-coordinate frame of the arm targets, and whether the gripper convention is
-open-high or open-low.
+Controller configuration as read back from the live environment:
+
+| | Arm | Gripper |
+|---|---|---|
+| `joint_names` | `panda_joint1` … `panda_joint7` | `panda_finger_joint1`, `panda_finger_joint2` |
+| `lower` / `upper` | `-0.1` / `0.1` | `-0.01` / `0.04` |
+| `use_delta` | `True` | `False` |
+| `use_target` | `False` | `False` |
+| `normalize_action` | `True` | `True` |
+| `mimic` | — | `{panda_finger_joint2: {joint: panda_finger_joint1}}` |
+| `stiffness` / `damping` | `1000.0` / `100.0` | `1000.0` / `100.0` |
+
+Measured mappings:
+
+- Arm: `a_i ∈ [-1,1] → Δq_i ∈ [-0.1,0.1] rad`, approximately
+  `Δq_i = 0.1 · a_i`. Stepping with `a_arm = ±1` moved the drive target to
+  exactly `qpos ± 0.1` rad on every arm joint. Because `use_target=False`, the
+  delta is applied to the **actual current joint position**, not to the previous
+  control target, so `q_target = q_current + Δq`.
+- Arm, one caveat worth keeping: the **observed** `qpos` after a single step
+  moves far less than the target delta (measured `0.01313 / 0.03491 / 0.02571`
+  rad on joints 1–3 for `a_arm = +1`), because the PD controller tracks the new
+  target over subsequent steps. Do not read the one-step `qpos` change as the
+  commanded delta.
+- Gripper: `a_g ∈ [-1,1]` maps linearly onto `[-0.01, 0.04]`:
+  `q_target = -0.01 + (a_g + 1)/2 · 0.05`. Measured drive targets:
+  `a_g = -1 → -0.01`, `a_g = 0 → +0.015`, `a_g = +1 → +0.04`. Both finger
+  joints received the same target through the mimic relation, so one action
+  value drives two active joints.
+- Gripper direction: at reset `panda_finger_joint1` sits at `+0.04`. The
+  measured mapping therefore makes `a_g = +1` the **maximum opening** and
+  `a_g = -1` the closed extreme, and `a_g = 0` an intermediate half-open target
+  rather than a neutral no-op.
+- DOF accounting: the arm contributes 7 controlled DOF and the gripper 1, so
+  `7 + 1 = 8` action dimensions, while the physically active joint count is
+  `7 + 2 = 9` because the two finger joints are coupled by mimic.
+
+`[verified]` This supersedes the earlier statement that action semantics were
+undocumented, and it closes the previous delta-versus-absolute `[open]` item:
+the 2.2 reading (arm uses delta control) was correct, and it is now extended by
+the fact that the gripper channel is an absolute position target. The earlier
+conversion manifest described all 8 dimensions uniformly as a normalized joint
+position target, which was inaccurate for the arm channels; the manifest
+generator and the on-disk manifest have been corrected. See
+"Manifest provenance" below.
+
+Still not established, and worth confirming before the closed-loop step: the
+exact physical meaning of the gripper extremes for this assembly. The numeric
+mapping above is measured; whether `0.04` corresponds to fingers fully apart is
+an interpretation to verify by execution or by reading the MJCF, not by
+assuming from the sign.
+
+## Manifest Provenance
+
+`[verified]` Two separate issues with
+`datasets/lerobot/pickcube/conversion_manifest.json`:
+
+1. **Corrected semantics.** The generated manifest described the whole 8-d
+   action as a uniform "normalized joint position target". That was inaccurate
+   for the arm channels, which are deltas. `scripts/pipeline/manifest.py` now
+   emits the split arm/gripper structure documented above, and the on-disk
+   manifest was patched to match, carrying an
+   `action_semantics_correction` block that records what was changed, why, and
+   that the dataset payload is untouched. A future regeneration will produce the
+   same structure from code.
+2. **Stale recorded path.** `[resolved 2026-09-22 by regeneration]` The manifest used to
+   record `/home/bowenyuan95/Projects/embodied-ai-learning/...`, a path that does not
+   exist on this machine. It was deliberately **not** hand-edited, because rewriting a
+   provenance field by hand is exactly what the project forbids. Instead the pipeline
+   was re-run and the generator wrote the current path. The recorded `sha256` matched
+   the source file throughout, so payload lineage was never in question. The
+   hand-written `action_semantics_correction` block is also gone: the generator now
+   emits the correct semantics directly, so no correction note is needed.
 
 ## Observation Decomposition
 
@@ -267,7 +333,7 @@ reusable gate check that performs full-frame validation.
 | Check | Required evidence | Status |
 |---|---|---|
 | Source trajectory | Episode created and advanced through `o_t → a_t → o_{t+1}` | **PASS** `[reported]` |
-| State and action space | 42-d state and 8-d action decomposed, action spec documented | **PARTIAL** — spec documented; per-field deployability not encoded; delta-vs-absolute naming gap open |
+| State and action space | 42-d state and 8-d action decomposed, action spec documented | **PASS** part 1 — both action channels fully specified and verified (arm delta `[-0.1,0.1]` rad, gripper absolute `[-0.01,0.04]`); per-field observation deployability still not encoded |
 | Temporal pairing | Documented `(o_t, a_t)` rule and `T` versus `T+1` convention | **PASS** `[reported]` |
 | Source storage | HDF5 episode grouping and array lengths checked | **PASS** `[verified]` |
 | Conversion | ManiSkill trajectory converted to LeRobot format with `data/` and `meta/` | **PASS** `[verified]` |
@@ -314,10 +380,12 @@ Deferred, not blocking: the temporal contract, the missing
 
 ### 2026-09-22 — Lesson 2 收尾阶段同步与 2.8.6 复现
 
-- Re-read the notebook `notebooks/inspect_lerobot_dataset.ipynb` (40 cells) and
-  confirmed that 2.7 through 2.8.6 are implemented there: `DataLoader` with
-  `batch_size=8`, `MLPPolicy` with `Tanh` output, `nn.MSELoss()`, `Adam(lr=1e-3)`,
-  and a 100-epoch training loop ending in a loss curve.
+- Re-read the notebook now named
+  `notebooks/2.7_2.8_bc_training_pipeline.ipynb` (40 cells at the time; renamed
+  and markdown-organized on 2026-09-22 without re-executing it) and confirmed that
+  2.7 through 2.8.6 are implemented there: `DataLoader` with `batch_size=8`,
+  `MLPPolicy` with `Tanh` output, `nn.MSELoss()`, `Adam(lr=1e-3)`, and a
+  100-epoch training loop ending in a loss curve.
 - Reproduced the training result independently in a standalone process rather
   than trusting the recorded output: `loss[0] = 0.346221`, `loss[-1] = 0.105965`,
   `loss[9] = 0.311921`, `loss[19] = 0.283204`, `loss[29] = 0.257555`,
@@ -339,6 +407,305 @@ Deferred, not blocking: the temporal contract, the missing
 - Rewrote this file and the Lesson 2 section of `docs/roadmap_v3.md` to the
   lesson sequence the learner now uses (2.1–2.8.8), replacing the earlier
   2.1–2.9 breakdown and the stale claim that the environment was empty.
-- No datasets were modified, no conversion was re-run, no scripts were changed,
-  and no closed-loop rollout was attempted in this session. This update is
-  documentation plus independent read-only reproduction.
+- No dataset payload was modified, no conversion was re-run, and no closed-loop
+  rollout was attempted in this session. This update is documentation plus
+  independent read-only reproduction.
+
+### 2026-09-22 — Action semantics verified and manifest corrected
+
+- Resolved the delta-versus-absolute `[open]` item by reading the live
+  `PickCube-v1` controller configuration rather than inferring from names. Both
+  sub-controller configs match the learner's report field for field:
+  arm `PDJointPosController` with `lower=-0.1`, `upper=0.1`, `use_delta=True`,
+  `use_target=False`, `normalize_action=True`; gripper
+  `PDJointPosMimicController` with `lower=-0.01`, `upper=0.04`,
+  `use_delta=False`, `use_target=False`, `normalize_action=True`, and mimic
+  `panda_finger_joint2 ← panda_finger_joint1`.
+- Confirmed the channel split from `agent.controller.action_mapping`:
+  `{'arm': [0,7], 'gripper': [7,8]}` over a single
+  `Box(-1.0, 1.0, (8,), float32)` action space.
+- Verified the arm mapping by stepping with known actions: `a_arm = ±1` moves the
+  drive target to exactly `qpos ± 0.1` rad on all seven joints, and the delta is
+  taken against the current `qpos` because `use_target=False`. Also recorded a
+  trap: the observed `qpos` one step later moves only about
+  `0.013`–`0.035` rad, because PD tracking is not instantaneous.
+- Verified the gripper mapping by stepping with known actions: drive targets
+  `-0.01`, `+0.015`, `+0.04` for `a_g = -1`, `0`, `+1`, both fingers equal. Since
+  `panda_finger_joint1` starts at `+0.04`, `a_g = +1` is maximum opening and
+  `a_g = 0` is an intermediate target rather than a neutral no-op.
+- Fixed `scripts/pipeline/manifest.py`, which emitted one uniform
+  `"normalized joint position target"` for all 8 dimensions. It now emits the
+  split `arm` / `gripper` structure with `indices`, `use_delta`, `use_target`,
+  `physical_range`, and `unit`.
+- Patched the on-disk `datasets/lerobot/pickcube/conversion_manifest.json`
+  `action_semantics` block to match, and added an `action_semantics_correction`
+  block recording the reason, the verification method, and that the payload is
+  unchanged. The stale recorded source path was deliberately left alone; see
+  "Manifest Provenance". `[open]`
+
+### 2026-09-22 — Notebook reorganization
+
+- Renamed four notebooks so their names carry the lesson they belong to, using
+  `git mv` so history is preserved:
+  - `00_environment_check.ipynb` → `0_environment_check.ipynb`
+  - `01_inspect_pickcube_dataset.ipynb` →
+    `2.2_2.6_inspect_trajectory_and_observation_schema.ipynb`
+  - `Generate_PickCube_LeRobot_Dataset.ipynb` →
+    `2.5_generate_lerobot_dataset.ipynb`
+  - `inspect_lerobot_dataset.ipynb` → `2.7_2.8_bc_training_pipeline.ipynb`
+- Added markdown section cells so each notebook reads as a sequence instead of a
+  wall of code: lesson scope, what each block does, and what its result does and
+  does not prove.
+- **No code cell was re-executed.** Verified against `HEAD` for all four
+  notebooks: code sources, outputs, `execution_count` values, cell metadata, and
+  kernelspec are byte-identical; only markdown cells were inserted. All four
+  still pass `nbformat.validate`.
+- Corrected the naming of two cells in
+  `2.7_2.8_bc_training_pipeline.ipynb` while adding headers: what the notebook
+  records as "2.8.4 时间窗口 `[B,T,D]`" is a loss computation, and temporal
+  windows are not implemented anywhere in the repository. The section is now
+  titled "MSE loss", and temporal windows remain future work.
+- `2.8 Check data.ipynb` was left untouched, as requested. It is a scratch
+  notebook in active use; it interleaves environment experiments with a search
+  for ManiSkill's motion planners and is not part of the curated sequence.
+- Updated `README.md`: repository tree, status line, Current Progress table,
+  roadmap checkboxes, and the inspection-notebook command.
+- No dataset, script, or training artifact was modified by this reorganization.
+- No dataset payload was rewritten and no conversion was re-run.
+
+### 2026-09-22 — Lesson 1 and Lesson 2 gap notebooks
+
+- Built seven new notebooks to cover the roadmap gaps from Lesson 1 through the
+  current position. Lesson 1 previously had **no** notebook at all, and the
+  Lesson 2 sequence had holes at 2.1, 2.3, and 2.9.
+- All notebook names were unified to `lesson_substep_topic.ipynb`, which required
+  re-splitting the training notebook: `2.6_dataset_dataloader.ipynb` (dataset and
+  batching) and `2.7_bc_training_loop.ipynb` (policy, loss, backprop, 100-epoch
+  loop). The split was verified against `HEAD`: all 33 code cells keep byte-identical
+  sources, outputs, and `execution_count` values.
+- `2.8 Check data.ipynb` was renamed to `2.8_check_data.ipynb` to drop the space,
+  and its content was not modified.
+- Content was grounded in the archived Lesson 0/1 probes rather than rewritten:
+  `smoke_test_maniskill.py` and `collect_pickcube_random.py` became
+  `2.1_environment_and_rollout.ipynb`; `verify_state_flattening.py` and
+  `build_deployment_safe_observation.py` informed `1.1_state_and_observation.ipynb`.
+- Notebooks are committed **with executed outputs**. All twelve curated notebooks
+  execute with zero errors; execute via `nbclient` from the repository root with a
+  workspace-local `HF_HOME`.
+- `scripts/build_lesson_notebooks.py` regenerates the Lesson 1–3 notebooks from
+  source (without outputs).
+
+New findings recorded in the notebooks:
+
+- `get_proprioception()` and `get_state()` return **nested dicts**, not tensors.
+- `Pose.to(device)` moves a pose between devices; it is **not** a frame change.
+  Frame composition is 4x4 matrix algebra.
+- `tcp_to_obj_pos` and `obj_to_goal_pos` are **world-frame position differences**
+  (`obj_pos - tcp_pos`), not vectors rotated into the gripper frame. The rotated
+  version is numerically different because the TCP rotation is not identity.
+- The 42-d flat layout differs from `state_dict` insertion order; verified layout is
+  `qpos(0:9) qvel(9:18) is_grasped(18:19) tcp_pose(19:26) goal_pos(26:29)
+  obj_pose(29:36) tcp_to_obj_pos(36:39) obj_to_goal_pos(39:42)`.
+- Same task, eleven control modes, action dimensions from 4 to 15, and
+  `pd_joint_pos` uses physical joint limits rather than `[-1, 1]`.
+
+### 2026-09-22 — Motion planner segfault: root cause corrected
+
+> **Correction.** An earlier entry in this log attributed the planner segfault to the
+> missing GPU backend. **That was wrong.** The crash reproduces on pure CPU and has
+> nothing to do with CUDA or SAPIEN's render device. The real cause is a NumPy ABI
+> mismatch, established below by isolation testing.
+
+`[verified]` Constructing ManiSkill's motion planner terminated the process:
+
+```text
+Fatal Python error: Segmentation fault
+  File ".../mplib/planner.py", line 65 in __init__
+  File ".../base_motionplanner/motionplanner.py", line 59 in setup_planner
+  File ".../panda/motionplanner.py", line 25 in __init__
+```
+
+Root cause, and the evidence for it:
+
+- **`mplib` 0.1.1 is built against the NumPy 1.x C API.** Under NumPy 2.x its stored
+  C-API function pointers are invalid, so the constructor performs an indirect call to
+  address `0x0`. Kernel log confirms it: `segfault at 0 ip 0000000000000000`.
+- **Decisive test.** The same code, same environment, only the NumPy version changed:
+  `numpy 2.2.6` → SIGSEGV; `numpy 1.26.4` → `ArticulatedModel OK`, and the full
+  official PickCube solution returns `success: True`.
+- **Dependency evidence.** The `mplib` 0.2.0/0.2.1 wheels declare `Requires-Dist:
+  numpy <2.0`; 0.1.1 declares only `numpy`, with no upper bound, so pip happily paired
+  it with NumPy 2.
+- **Ruled out by isolation**, each tested directly: GPU/CUDA, Python version (3.10 and
+  3.12 both crash), link/joint arguments (empty lists crash), `move_group` value, SRDF
+  contents, missing shared libraries (`ldd` reports no unresolved non-Python symbols),
+  mesh parsing (a primitives-only URDF crashes), `convex=True/False`, conflicts with
+  scipy/toppra/ManiSkill (`env -i` clean process still crashes), and glibc version
+  (wheel is `manylinux_2_17`, host is glibc 2.39).
+- **Upgrading `mplib` is not a way out.** ManiSkill 3.0.1 pins `mplib==0.1.1`, and
+  `mplib` 0.2.x breaks the API ManiSkill uses: `set_base_pose` now demands a
+  `mplib.pymp.Pose` instead of a 7-vector, and `Planner.get_joint_pos`,
+  `get_link_pose`, `get_move_group_pick_indices`, and
+  `get_move_group_joint_indices` are gone. The upgrade was tested in isolation and
+  rejected on that basis.
+- **Fix applied:** `numpy<2` in `embodied310`. Verified after the change: all of
+  `torch`, `gymnasium`, `mani_skill`, `sapien`, `mplib`, `toppra`, `scipy`,
+  `matplotlib`, `h5py`, and `cv2` import and work; the project data pipeline
+  (`load_episode` + `validate_episode`) runs. `opencv-python 5.0.0.93` declares
+  `numpy>=2`, but was verified to import and run under 1.26.4 — the conflict is in pip
+  metadata only.
+- **Environment split, now documented:** `embodied` (NumPy 2.2.6, has lerobot/pyarrow)
+  runs notebooks and the data pipeline; `embodied310` (NumPy 1.26.4) runs the planner.
+  A planner call inside an `embodied` kernel kills the kernel outright, which is why
+  `2.9_expert_demonstrations.ipynb` delegates planning to a subprocess.
+
+### 2026-09-22 — Expert demonstrations produced (2.9 unblocked)
+
+`[verified]` `scripts/generate_expert_demo.py` drives ManiSkill's own
+`panda/solutions/pick_cube.py` planner and records every transition by wrapping
+`env.step`, so actions are what the environment actually executed rather than a
+reconstruction.
+
+| Seed | Frames | `success` | `is_obj_placed` | `is_robot_static` |
+|---:|---:|:--:|:--:|:--:|
+| 0 | 74 | True | True | True |
+| 1 | 74 | True | True | True |
+| 2 | 50 | True | True | True |
+| 3 | 86 | True | True | True |
+| 4 | 76 | True | True | True |
+
+**5 of 5 episodes succeed.** Output: `datasets/pickcube/expert_episodes.h5`, with the
+contract written into attributes (`control_mode`, `data_quality="expert_planner"`,
+`control_freq_hz=20`, `timestamp_source="derived_not_measured"`, per-channel action
+semantics).
+
+Two findings that had to be discovered rather than assumed:
+
+1. **Control mode must be `pd_joint_pos`.** The planner's `close_gripper()` /
+   `open_gripper()` emit `[qpos(7), gripper]`, an 8-d **absolute** position action.
+   Under `pd_joint_delta_pos` the helper produces a 15-d vector and the controller
+   rejects it: `AssertionError: Received action of shape torch.Size([15]) but expected
+   shape (1, 8)`.
+2. **The official recipe does not open the gripper after the carry.** Adding
+   `open_gripper()` plus zero-action settling steps makes the cube land beside the goal:
+   `is_obj_placed: False`, `success: False`. The verified sequence is exactly
+   reach → grasp → close → carry.
+
+**Action smoothness separates the two data regimes** — the single clearest metric that
+the random fixture can never train a policy:
+
+| Dataset | mean `|Δa|` |
+|---|---|
+| `random_episode_standard.h5` | `0.67` |
+| `expert_episodes.h5` | `0.0078` |
+
+**Replay verification, with an honest tolerance.** Replaying each episode from its seed
+reproduces the recorded **rewards exactly** (`max error 0.00e+00`) and the same
+`success` (5/5). Continuous state agrees to `~1e-2`. The boolean `is_grasped` flag
+differs on **1 frame out of 74**, at the grasp transition (recorded flips at frame 36,
+replay at 37), because it is a contact-threshold test.
+
+Consequence for the gate: the project's rule "replay must match the source" is
+achievable as *reward-exact and success-identical* for planner episodes, but **not** as
+bit-exact observations across a boolean contact threshold. The earlier claim that a
+source trajectory matched "all 50 observations" held for the random fixture; expert data
+needs the tolerance stated explicitly rather than a blanket "all observations match".
+
+### 2026-09-22 — Expert data is not concatenable with the existing fixture
+
+`[verified]` The repository now holds two trajectory kinds with **incompatible action
+semantics**:
+
+| | `random_episode_standard.h5` | `expert_episodes.h5` |
+|---|---|---|
+| Source | random actions | motion planner |
+| Episodes / frames | 1 / 50 | 5 / 50–86 |
+| Success | none (`success_any=False`) | 5/5 |
+| Control mode | `pd_joint_delta_pos` | `pd_joint_pos` |
+| Arm action | joint-position **delta**, `[-0.1, 0.1]` rad | **absolute** target in joint limits |
+| Role | pipeline fixture | imitation-learning supervision |
+
+Both are 8-dimensional and both sit in a box. That is exactly the trap
+`1.2_action_space_and_control_modes.ipynb` documents: matching shapes are not matching
+semantics. A converter (`Δq_t = q_target[t] - qpos[t]`, scaled by `0.1` and clamped)
+is straightforward but **must be built and verified before the two datasets are mixed**.
+It is deliberately not done in this session.
+
+### 2026-09-22 — scripts/ reorganization
+
+Goal: keep only the acquisition-and-processing path in `scripts/`, integrate the rest
+into the relevant notebook, or archive it.
+
+**Retained** (`scripts/`):
+
+| File | Why it stays |
+|---|---|
+| `run_pipeline.py` + `pipeline/` | the only conversion path and the only quality gate |
+| `observation_adapter.py` | the authoritative deployable-versus-privileged partition |
+| `collect_pickcube_random_rollout.py` | produces the source rollout |
+| `replay_pickcube_episode.py` | produces the acceptance-gate replay evidence |
+| `build_lesson_notebooks.py` | one-off notebook generator |
+
+**Moved into `notebooks/2.4_observation_schema.ipynb`** as executable cells, then
+archived:
+
+- `validate_maniskill_rollout.py` — schema, field-length consistency, shape, numeric
+  health, episode semantics, `elapsed_steps` continuity;
+- `compare_random_datasets.py` — variant comparison, converted into a dataset-lineage
+  demonstration;
+- `dataset_report.py` — its 13 shared functions already live in
+  `scripts/pipeline/reporter.py`; only `main`/`load_h5`/`run_quality_checks` were
+  unique orchestration.
+
+New cells in 2.4 use **real executed outputs**, not fabricated ones. The section also
+documents the three-file lineage `maniskill_random_rollout.h5` ->
+`random_episode_000.h5` -> `random_episode_standard.h5` and proves that the raw and
+intermediate files are **different trajectories** despite comparable shapes.
+
+**Archived to `archive/offroadmap/`**: `test_mplib_panda.py`, `test_planner.py` —
+mplib debug probes with hard-coded environment paths, written while diagnosing the
+planner segfault. The diagnosis is recorded; the probes are not portable.
+
+**Archived to `archive/lesson_2_superseded/`**: `validate_maniskill_rollout.py`,
+`compare_random_datasets.py`, `dataset_report.py`, `test_observation_adapter.py`.
+`archive/README.md` records each one's replacement.
+
+**Reorganization decisions worth noting:**
+
+- `observation_adapter.py` was moved out of `pipeline/` and up to `scripts/`. It is
+  **not** used by `run_pipeline.py` at all; its only real consumer is the 1.1 lesson
+  notebook. Keeping it inside `pipeline/` implied it was a conversion step, which it
+  is not — it encodes which state fields a real robot could measure, which is a
+  modelling decision.
+- A later attempt to turn the adapter into a "test" would have duplicated its four
+  descriptive lines, so it was archived as a probe instead. The single source of truth
+  is `scripts/observation_adapter.py`, demonstrated in
+  `notebooks/1.1_state_and_observation.ipynb`.
+- `scripts/figures/` and `scripts/reports/` were **kept**: `pipeline/config.py`
+  defines them as the pipeline's own output directories, so they are live, not
+  leftovers from the retired script.
+
+**Fixed while verifying:** `python scripts/run_pipeline.py` failed with
+`ModuleNotFoundError: No module named 'scripts'`, because running a file puts the
+script's directory on `sys.path`, not the working directory. This was pre-existing and
+the README documented the failing invocation. `run_pipeline.py` now inserts the
+repository root into `sys.path`, and the pipeline runs from the repository root and
+from any other working directory. Verified end to end with `--overwrite`.
+
+### 2026-09-22 — Manifest provenance issue resolved by regeneration
+
+- Re-running the full pipeline regenerated
+  `datasets/lerobot/pickcube/conversion_manifest.json`.
+- The recorded source path is now correct
+  (`/home/bowenyuan/Projects/embodied-ai-learning/...`), so the stale-path `[open]`
+  item from the action-semantics session is **closed**.
+- The regenerated manifest carries the **corrected** action semantics directly from
+  `scripts/pipeline/manifest.py` — arm delta with `use_delta=True`/`use_target=False`
+  and gripper absolute with range `[-0.01, 0.04]`. The hand-written
+  `action_semantics_correction` block is gone because it is no longer needed: the
+  generator no longer produces the wrong description. This confirms the earlier patch
+  and the generator now agree.
+- The dataset payload was regenerated from the same source hash, so the counts
+  (1 episode, 50 frames, fps 50) are unchanged, and the timing defect
+  (`timestamp_source: synthetic`, `nominal_fps: 50` over 20 Hz control) is still
+  present and still open.

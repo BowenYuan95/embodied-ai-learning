@@ -92,8 +92,17 @@ Loss → 训练 → Rollout**。本课结束时应当能独立解释并实现这
 ### 2.2 机器人状态与动作空间【已完成】
 - 解析 42 维 `observation.state`
 - 理解关节位置、关节速度、TCP 位姿、物体位姿、目标位置
-- 解析 8 维 action：7 维关节控制 + 1 维夹爪控制
-- 理解 `pd_joint_delta_pos`
+- 解析 8 维 action：**不是统一语义**，而是两种命令拼接
+  - `action[0:7]`：`PDJointPosController`，基于**当前关节位置**的关节位置增量
+    （`use_delta=True`、`use_target=False`、`normalize_action=True`），
+    归一化 `[-1,1]` 映射到 `[-0.1, 0.1] rad`，近似 `Δq_i = 0.1·a_i`，
+    目标为 `q_target = q_current + Δq`
+  - `action[7]`：`PDJointPosMimicController`，夹爪**绝对位置目标**，
+    归一化 `[-1,1]` 映射到 `[-0.01, 0.04]`，两指通过 mimic 联动，
+    因此 1 个动作值驱动 2 个活动关节
+- 理解 `pd_joint_delta_pos`：机械臂用 delta、夹爪用 absolute，
+  这是本任务最容易被误读的一处
+- DOF 记账：`7 + 1 = 8` 个动作维度，而物理活动关节数为 `7 + 2 = 9`
 
 ### 2.3 时间对齐【已完成】
 - 理解 frame、timestamp、episode
@@ -674,7 +683,11 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 ## Lesson 2 已完成
 
 - ManiSkill `PickCube-v1` rollout 与完整 `o_t → a_t → o_{t+1}` 控制循环；
-- 42 维 observation 拆解、8 维 action 分析（7 关节 + 1 夹爪）、`pd_joint_delta_pos`；
+- 42 维 observation 拆解、8 维 action 分析、`pd_joint_delta_pos`；
+- 8 维 action 的**双语义**已实测确认：`action[0:7]` 为基于当前 qpos 的关节增量
+  （`[-0.1,0.1] rad`、`use_delta=True`、`use_target=False`），`action[7]` 为夹爪
+  绝对位置目标（`[-0.01,0.04]`、mimic 联动）；`conversion_manifest.json` 与
+  `scripts/pipeline/manifest.py` 已按此修正动作语义描述；
 - `(o_t, a_t)` 时间对齐确认，以及 `T` / `T+1` 约定；
 - ManiSkill HDF5 原始轨迹存储与 episode 分组；
 - ManiSkill HDF5 → LeRobot Dataset 转换，产物位于 `datasets/lerobot/pickcube/`；
@@ -690,7 +703,13 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 
 1. **2.8.7 训练集与验证集**：为什么只看训练 Loss 不够、train/validation split、
    泛化与记忆、underfitting 与 overfitting、为什么随机动作数据无法训练出有效
-   策略；单 episode 下 frame 级划分会泄漏，需明确记录该限制；
+   策略；单 episode 下 frame 级划分会泄漏，需明确记录该限制。
+   **进展**：2.9 已产出 5 条成功专家 episode
+   （`datasets/pickcube/expert_episodes.h5`，50–86 帧，5/5 成功），
+   因此「只有 1 个 episode」不再是唯一可用数据。但这些 episode 是
+   `pd_joint_pos` 绝对关节目标，与本项目 `pd_joint_delta_pos` 的增量语义
+   **不兼容**，混用前必须先转换并验证。若要据此做按 episode 划分的
+   train/val，需先完成该转换。
 2. **2.8.8 策略部署与闭环执行**：`env.step(policy(state))`、`train()` / `eval()`、
    `torch.no_grad()`、单步预测与闭环 rollout、动作裁剪与仿真安全、
    判断策略是否真的完成任务。
@@ -698,9 +717,10 @@ Lesson 2 的重点是「把训练管线跑通」；Lesson 3 的重点是理解�
 以下为记录备查、当前不阻塞的遗留项：
 
 3. `inspect_robot_dataset.py`（本课验收项，目前缺失）；
-4. 8 维 action specification 的剩余字段：实际控制频率、坐标系、夹爪开合约定；
-   以及 2.2 的 `pd_joint_delta_pos` 与 manifest 记录的 `PDJointPosController`
-   之间的 delta / absolute 语义差异；
+4. manifest 溯源：记录中的源路径为已不存在的 `/home/bowenyuan95/...`（sha256 仍
+   与当前源文件一致，仅记录字符串有误），下次重建数据集时用
+   `scripts/run_pipeline.py` 重新生成；夹爪开合方向的物理含义（`0.04` 是否对应
+   完全张开）仍待执行验证或查阅 MJCF 确认；
 5. **20 Hz / 50 Hz 时间契约矛盾**：控制频率实测 20 Hz（`control_timestep=0.05`），
    而合成时间戳为 `0.02 s`，`converter.py:estimate_fps` 从时间戳反推出
    `info.json` 的 50 FPS，使时间轴压缩 2.5 倍。修复后在时间窗口工作之前生效；

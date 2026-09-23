@@ -126,6 +126,10 @@ Memory also needs a forgetting policy: an agent that remembers everything cannot
 retrieve reliably, and an agent that keeps only the last few frames cannot track
 a long task.
 
+This is the **agent-level** sense of memory. See "History Representation for Policies"
+for the architectural sense — how a network physically carries past inputs — which is a
+different question, with different constraints and different failure modes.
+
 ### Task-Conditioned VLA
 
 A reactive VLA can be written as:
@@ -430,6 +434,194 @@ research contribution, and the existing substrate (ManiSkill plus the mechanical
 arm) is sufficient for the experiments in this phase. Adopt each only when a
 concrete experiment demands it.
 
+## Transformer and Attention Fundamentals
+
+Read-side rule for any architecture containing attention: the formula
+`Attention(Q,K,V) = softmax(QKᵀ/√d_k)V` is not the difficulty. What matters is
+**which tokens are Q versus K/V** (self versus cross), **what the mask allows**,
+and **how much routing diversity the head budget buys**. Every numeric claim
+below is re-verifiable with `python scripts/attention_walkthrough.py` (23
+assertions, standard library only, no dataset or simulator).
+
+### Attention routes; the FFN transforms
+
+`o_i = Σ_j A_ij v_j` with `A` row-stochastic, so every output row is a **convex
+combination of the value rows**. Attention cannot produce a direction outside the
+convex hull of `V`: it moves and mixes information, it does not transform it. That
+is why a block needs the position-wise FFN (and residual paths) as well. In policy
+code the useful split is "**attention mixes, FFN transforms**".
+
+### Q, K, V are three roles, and the projections must stay separate
+
+`Q` = what this position looks for, `K` = how this position can be found,
+`V` = what it actually passes on. Merging them has concrete costs:
+
+- `W_Q = W_K` makes `S = QKᵀ` symmetric, forcing "i attends to j" to equal
+  "j attends to i" — attention becomes undirected. Language, task dependencies,
+  and grasp relations are directed, so this is a real loss of expressiveness.
+- Sharing `K` and `V` forbids "easy to be found, low payload".
+
+`S_ij = x_iᵀ (W_Q W_Kᵀ) x_j` is a **learned bilinear form**, not a similarity
+metric: it need not be symmetric, and `S_ii` need not be the row maximum. Two
+traps follow:
+
+- **A high score is not importance** — only geometric compatibility.
+- **Scores are not comparable across rows.** Softmax is shift-invariant
+  (`softmax(z + c) = softmax(z)`), so only within-row differences matter, and a
+  row whose scores are uniformly high can still be the most peaked row. Measured
+  on the `T=3` example: the row with the largest raw scores carries the highest
+  single weight (`0.5035` vs `0.4011`) and the *lowest* entropy.
+
+### `1/√d_k` is a temperature, not overflow insurance
+
+With near zero-mean unit-variance components the dot product has standard
+deviation `√d_k` (measured `22.49` at `d_k = 512` against `√512 = 22.63`).
+Unscaled, softmax saturates and its Jacobian `p(1−p)` collapses: measured
+`1.05e−1` at logits `±1`, `3.35e−4` at `±4`, `1.13e−7` at `±8`. On one fixed
+`q, K` pair at `d_k = 64`, dropping the divisor gave max softmax `0.9806` and
+entropy `0.122`, while dividing by `√d_k` gave `0.0947` and `3.785` (uniform is
+`4.159`). The divisor is what keeps early routing soft and trainable; overflow is
+the secondary concern. The independence assumption is heuristic — a real model
+derives both `q` and `k` from the same `X` — but it predicts the measured
+magnitudes.
+
+### `A` is a content-generated soft adjacency matrix
+
+`A` is `T×T`, row-stochastic, and recomputed per sample and per layer. This is the
+object worth reading, and it is the same mathematical object as a hand-built
+temporal/spatial segmentation affinity matrix — with the weights learned rather
+than designed. During a manipulation task it answers the architecture question
+directly: which observation frames or tokens does the action bind to? Two limits:
+
+- large entries in `A` do **not** establish causal importance, because residual
+  paths and later layers can ignore the mixed signal. **Attention weights are not
+  an explanation.**
+- human gaze is an *exogenous* measured signal; model attention is an *endogenous*
+  intermediate variable. They can inform each other, but neither validates the
+  other.
+
+### Structural properties to expect
+
+- **Permutation equivariant**: `Att(PX) = P·Att(X)` (verified exactly), i.e.
+  attention treats its input as a **set**. Positional encoding is therefore a
+  necessity, not an optimization.
+- **Global receptive field in one layer**, at the cost of a `T×T` score matrix:
+  `O(T²)` time and memory. Long-horizon trajectories hit this, which is one
+  motivation for action chunking and for local/sparse/linear attention.
+- **No recurrent state**: nothing persists between positions except the tokens
+  themselves (or an external KV cache), so the input must carry whatever history
+  the policy needs.
+- **Softmax is the only nonlinearity inside attention**, so without the FFN a
+  block is close to a data-dependent linear map.
+
+### Multi-head: `h` parallel routing maps, merged only at `W_O`
+
+`head_m = Attention(XW_Q^(m), XW_K^(m), XW_V^(m))`,
+`MHA = Concat(head_1 … head_h) W_O`, with `d_k = d_v = d_model / h`.
+
+| Claim | Consequence |
+|---|---|
+| `Q/K/V` parameter count is identical to a single head with `d_k = d_model` | multi-head re-partitions the same budget; it does not buy capacity |
+| `W_O` is an *additional* `d_model × d_model` matrix | multi-head necessarily costs one output projection, because a single head's output needs no merging |
+| heads have no direct path to each other | `W_O` is the only place they are mixed; drop it and the block is `h` independent pipelines |
+| heads share the input `X` and everything downstream | "independent" is an approximation — gradients coordinate them indirectly |
+| what relation each head learns is emergent | observed head roles are tendencies, not guarantees; never assert "head 3 does coreference" |
+
+In a framework the `h` small matrices usually do not exist: one
+`d_model × d_model` `W_Q` is computed, then reshaped to `(batch, h, T, d_k)`. The
+per-head loop and the reshape-and-batch form were verified elementwise identical,
+so a reader who sees only a big matrix, a `reshape`, and a `W_O` is not missing
+anything.
+
+### Each head's expressiveness is bounded by `d_k`
+
+`S = QKᵀ` with `Q, K` of shape `T × d_k` gives `rank(S) ≤ d_k`. At `d_k = 1` the
+score table is an outer product: **every position's row is a scalar multiple of
+every other**, so all queries share one preference ordering and can differ only in
+sharpness (verified: one shared argmax, versus four distinct argmaxes at
+`d_k = 64`). `h = d_model` is therefore legal mathematics and a degenerate design:
+routing diversity collapses, each head runs its own `T×T` softmax, and inner
+dimension `1` wastes the hardware. Practice keeps `h` near `8–32` so that `d_k`
+stays near `64–128`.
+
+### Masks are a semantic decision about allowed information flow
+
+Both mask types set scores to `−∞` **before** softmax; masking after softmax
+breaks the row sum.
+
+| Mask | Blocks | Encodes |
+|---|---|---|
+| causal | all `j > i` | position `t` may use only `≤ t`: autoregressive decoding, and "the action at `t` may not depend on future observations" |
+| padding | padded positions | batch alignment of variable-length sequences |
+
+Bidirectional versus causal is not an implementation detail. ACT's encoder is
+bidirectional (predicting a whole action chunk may see the whole window), while
+OpenVLA emits discrete action tokens autoregressively and must be causal. The
+mask states what information is allowed in, so read it before reading the loss.
+
+### The transferable trap
+
+A valid formula with the right shapes is not evidence that the intended concept
+survived. `d_k = 1` keeps every symbol and loses per-position preference; two 8-d
+action vectors share a shape and still mean different things (see "Action
+Specification"). Legality — shapes, symbols, dtypes — is never proof of semantic
+equivalence. Ask what freedom is left, not what compiles.
+
+## History Representation for Policies
+
+The question here is narrower than "what is memory": when a policy must condition on
+more than the current observation, **where does the history physically live, and what
+does retrieving it cost?** Every mechanism below answers that, and the dividing line is
+**retain versus compress**.
+
+| Method | History lives in | Retrieved by | What is lost | Time-parallel | Cost vs length |
+|---|---|---|---|---|---|
+| Frame stacking | the input buffer | concatenation | everything outside the window | yes | input width grows linearly |
+| RNN | `h_t` | recurrence | fixed-size bottleneck | no | linear in steps |
+| LSTM | `h_t, c_t` | gated recurrence | fixed-size bottleneck | no | linear in steps |
+| Transformer | per-token representations / KV cache | attention | nothing inside the context window | yes | ~`O(T²)` compute, `O(T)` cache |
+
+Three distinctions with implementation weight:
+
+- **LSTM does not remove the compression bottleneck; it makes the compressed path
+  trainable.** The cell-state update is additive, so the diagonal gradient path is
+  `∂c_t/∂c_{t-1} = diag(f_t)` instead of RNN's `diag(1 − h_t²)·W`. Nothing is stored
+  outside `c_t`, but the gradient reaches further back.
+- **KV cache is what "retention" means concretely at inference.** Past `K, V` are kept
+  per layer; each new token adds `O(T)` compute and `O(T)` memory. Long context is
+  expensive in *memory*, not only in FLOPs. RNN/LSTM inference stays `O(1)` in memory
+  per step, which is a genuine trade rather than a strictly worse design.
+- **Parallelism is why the recurrent family lost.** Frame stacking and Transformer
+  compute all positions at once; RNN and LSTM cannot, because `h_t` depends on
+  `h_{t-1}`. The price paid for parallelizing is the quadratic dependence on sequence
+  length.
+
+### Two senses of "memory" that must not be conflated
+
+- **Architectural history representation** (this section): how a network physically
+  carries past inputs — a window, a state vector, a cache.
+- **Agent-level memory** (see "Embodied Memory"): what the *agent* remembers —
+  episodic, semantic, procedural — and what it should forget.
+
+A longer input window is not task-state tracking. A policy can attend over a whole
+trajectory and still represent nothing about "which step has been completed", and an
+agent can track task state with no attention at all. The first is a representation
+question, the second a task-structure question, and the project's research target is
+the second.
+
+### What history fixes, and what it does not
+
+History restores information the current observation lost (partial observability), by
+making an implicit state estimate `ŝ_t = φ(o_{t-k:t})` possible. It does **not** fix
+data scarcity or distribution shift: the Lesson 2 failure is the latter (validation MSE
+`0.2350` worse than the `0.1421` mean-action baseline, held-out `|z| = 13.21`, `0/10`
+closed-loop success), and a longer window does not repair it.
+
+One detail that is easy to miss and matters for robot policies: the memory recurrence
+`m_t = update(m_{t-1}, o_t, a_{t-1})` takes the previous **action** as an input. Whether
+a policy is fed `o_{t-k:t}` or `(o_{t-k:t}, a_{t-k:t-1})` is therefore a design choice
+with a semantic consequence, not a formatting detail.
+
 ## Action Policy Families
 
 Four families matter, and they are cumulative rather than competing:
@@ -473,7 +665,8 @@ the concrete question to answer is *which tokens exchange what*: the instruction
 token must bind to the relevant visual tokens, and the state tokens must condition
 the action. `Q = XW_Q`, `K = XW_K`, `V = XW_V` with
 `Attention(Q,K,V) = softmax(QKᵀ/√d_k)V` is the mechanism; the interesting part is
-the routing, not the arithmetic.
+the routing, not the arithmetic — see "Transformer and Attention Fundamentals" for
+what that routing matrix does and does not license.
 
 Two design choices with consequences:
 

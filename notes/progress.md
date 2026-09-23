@@ -1,6 +1,6 @@
 # Embodied AI Learning Progress
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 This is the single source of truth for current project status. Use Git history
 instead of creating date-suffixed progress files.
@@ -818,6 +818,172 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-23 — Notebook 3.6 (history representation) organized; one cell overwritten and restored by hand
+
+`notebooks/3.6_History Representation.ipynb` was an eight-cell pure-markdown outline
+that the learner had staged as a one-cell skeleton and then filled in. It was renamed
+to `notebooks/3.6_history_representation.ipynb` (`git mv`, staging preserved) to match
+the `lesson_substep_topic.ipynb` convention the other Lesson 3 notebooks use, and its
+markdown was reorganized into 13 cells. There are no code cells, so no outputs or
+`execution_count` values were involved; `nbformat.validate` passes.
+
+**An overwrite happened and is recorded rather than smoothed over.** The whole-file
+rewrite was done without re-checking the file's modification time first, and the
+learner saved a cell during the operation:
+
+| Evidence | Value |
+|---|---|
+| file at 17:11, before any edit | `5437` bytes |
+| structure dump and full dump | `8` markdown cells |
+| those 8 cells reconstructed verbatim | `4988` bytes / `184` lines — **`449` bytes short** of the file |
+| `nbformat.read` immediately before the rewrite | `9` markdown cells |
+| `git mv` / rewrite | 17:12:51 / 17:13:07 |
+
+One markdown cell was therefore written from outside in that window and the rewrite
+replaced it. Recovery was attempted and failed: there is no `.ipynb_checkpoints`
+anywhere under `~` (six levels); the git index holds only the original one-cell
+skeleton (`615` bytes, a single empty **code** cell); and `git fsck --unreachable`
+yields only unrelated blobs (README, a script, `AGENTS.md`) plus 2026-09-21 stash
+commits whose trees point at that same one-cell blob. The learner restored the cell by
+hand from the live JupyterLab buffer.
+
+The restored content is the closing chain of the "History / Memory Mechanism 统一对比"
+table, which the learner had changed from plain text into a boxed formula; it now sits
+at the end of §5 verbatim as given:
+
+```text
+\boxed{ \text{Fixed Window} \rightarrow \text{Compressed Memory}
+        \rightarrow \text{Gated Memory} \rightarrow \text{Attention Retrieval} }
+```
+
+Residual gap: that change accounts for roughly `+89` bytes, so about `360` bytes of
+the original delta remain unexplained. The notebook's section structure is complete,
+but the possibility of one further missing line is **not** ruled out; anything else the
+buffer still holds should be pasted in.
+
+**Rule recorded for future notebook work: re-read `mtime` immediately before writing,
+and never whole-file-rewrite a notebook that may be open in an editor.** Editing
+markdown cell by cell, or aborting when `mtime` changed since the last read, would have
+prevented this.
+
+What the reorganized notebook contains (the learner's outline preserved, structure
+numbered, four gaps filled):
+
+- the four-method list is repaired from pasted tab / zero-width-space fragments into a
+  table, and sorted onto the axis the lesson runs on: **Frame Stacking and Transformer
+  retain history; RNN and LSTM compress it**;
+- §3 states RNN's compression and explains that what LSTM fixes is the *gradient path*,
+  not capacity, via `∂c_t/∂c_{t-1} = diag(f_t) + …` against RNN's
+  `∂h_t/∂h_{t-1} = diag(1 − h_t²)·W`;
+- the LSTM gate section had a real notation collision: the input is written `o_t` (the
+  observation, this repository's convention) while the literature also writes the
+  **output gate** as `o_t`. The convention is now stated once (`o_t` = observation,
+  `g_t^{out}` = output gate), and the missing output-gate equation
+  `g_t^{out} = σ(W_o[o_t; h_{t-1}] + b_o)` is added — the original introduced
+  `o_t^{gate}` without ever giving its `σ(...)`;
+- §4 separates the **score matrix** `S = QKᵀ/√d_k` from the **attention weights**
+  `A = softmax(S)`. The original described `QKᵀ` with "第 i 行表示第 i 个 token 对其他
+  token 的关注程度", which is the weights; the missing step is the softmax, and only `A`
+  is row-stochastic. It points at `notes/concepts.md`
+  ("Transformer and Attention Fundamentals") and at `scripts/attention_walkthrough.py`
+  instead of re-deriving that material;
+- two axes the original tables lacked are added: **KV cache** as the concrete form of
+  "history retained rather than compressed" (per-step compute `O(T)`, cache memory
+  `O(T)`), and **whether the time dimension parallelizes** (Frame Stacking and
+  Transformer yes; RNN and LSTM no), which is the direct reason the recurrent family
+  was replaced;
+- §6 connects back to 3.5's diagnosis order (信息 → 表示 → 容量) and adds the detail
+  that 3.5's own recurrence `m_t = update(m_{t-1}, o_t, a_{t-1})` makes history an
+  **(observation, action)** question, not only an observation-window question;
+- `## 小结` and five `## 自检` questions close the notebook.
+
+Relationship to 3.5, recorded so the two are not mistaken for duplicates: 3.5 answers
+*whether* history is needed (information sufficiency; its synthetic experiment floors
+the single-frame MLP at `1.0027 = Var(a|o)` and takes the history MLP to `1.3e-05`),
+while 3.6 answers *where history physically lives and what retrieval costs*. 3.6 has no
+experiment and cites 3.5's numbers instead of repeating them.
+
+Also edited this session: `notes/concepts.md` gained `## History Representation for
+Policies` (the retain-versus-compress table, the `d_k`-independent architecture facts,
+and the distinction between architectural history and agent-level memory), with a
+pointer added from `Embodied Memory`. No dataset, checkpoint, script, or other
+notebook was touched.
+
+### 2026-09-23 — Attention fundamentals studied; `concepts.md` gained the section, with a new verification fixture
+
+Conceptual study session for the P0 "deep learning and Transformer fundamentals"
+gap. No dataset, notebook, checkpoint, or pipeline code was touched, and no project
+status changed: this session produced one new repository artifact and one new
+`concepts.md` section.
+
+New artifact: `scripts/attention_walkthrough.py` — a standard-library-only fixture
+that recomputes and **asserts** the numeric consequences of scaled dot-product
+attention and multi-head attention. First run:
+`python3 scripts/attention_walkthrough.py` → `23/23 checks passed`, exit `0`
+(`[verified]`). It reads no dataset, no checkpoint, and no simulator, so it repeats
+in any environment that has `python3`. Its purpose is to make the claims recorded
+in `concepts.md` re-checkable instead of trusted.
+
+One assertion failed on the first run and the **claim, not the code, was wrong** —
+recorded because the failure is itself the lesson. The fixture asserted that the
+`T=3` token whose raw scores are uniformly highest therefore has the flattest
+attention row. Entropy says the opposite: that row carries the highest single
+weight (`0.5035` vs `0.4011`) and the *lowest* entropy of the three. The cause is
+softmax shift-invariance, `softmax(z + c) = softmax(z)`: scores are not comparable
+across rows, so uniformly high scores flatten nothing. The assertion was replaced
+by three correct ones (shift-invariance; uniformly high scores do not flatten a
+row; the entropy ordering), all passing.
+
+`notes/concepts.md` gained `## Transformer and Attention Fundamentals`, inserted
+before `Action Policy Families` so the reading order runs fundamentals → policy
+families → VLA anatomy. It records conclusions rather than derivations:
+
+- attention **routes** while the FFN transforms — the output row is a convex
+  combination of the value rows, so attention alone cannot leave the convex hull
+  of `V`;
+- `W_Q / W_K / W_V` separate "what I look for", "how I am found", and "what I pass
+  on", with the concrete costs of merging them (`W_Q = W_K` forces undirected
+  attention);
+- `S` is a learned bilinear form: high score ≠ importance, and scores are not
+  comparable across rows;
+- `1/√d_k` is a softmax **temperature**, with the measured Jacobian
+  (`1.05e−1` → `1.13e−7` for logits `±1` → `±8`) and the paired entropy comparison
+  (`0.122` unscaled vs `3.785` scaled) as the evidence;
+- `A` is a content-generated soft adjacency matrix, the same object as a
+  hand-built temporal/spatial segmentation affinity matrix — and attention weights
+  are **not** an explanation, with the exogenous-gaze versus endogenous-attention
+  distinction the project's human-state work depends on;
+- permutation equivariance (positional encoding is a necessity, not an
+  optimization) and the `O(T²)` score-matrix cost;
+- multi-head as `h` parallel routing maps merged only at `W_O`: the `Q/K/V`
+  parameter budget is identical to a single head, and `W_O` is the necessary extra
+  because a single head's output needs no merging;
+- `rank(S) ≤ d_k`, so `d_k = 1` collapses all positions onto one preference
+  ordering, and `h = d_model` is legal mathematics and a degenerate design;
+- masks as a semantic decision about allowed information flow, applied **before**
+  softmax, with ACT bidirectional and OpenVLA causal;
+- the transferable trap: a valid formula with the right shapes is not evidence that
+  the intended concept survived.
+
+The `VLA Anatomy` section now cross-references it.
+
+Self-check outcome, recorded as learning evidence: of three questions posed, two
+were answered correctly (the `Q/K/V` parameter budget is unchanged; the heads
+cannot see each other and merge only at `W_O`) and the third was answered
+**incorrectly** — "`d_k = 1` can still express relevance because the math symbols
+are intact". The corrected principle is that *being computable is not being
+expressive*: at `d_k = 1` the score table is an outer product of rank 1, so every
+position shares one preference ordering and only sharpness varies. This is the same
+reasoning trap as "equal tensor shapes prove datasets are compatible", which this
+repository already records.
+
+What this session does **not** establish: nothing about the policy, the dataset, or
+closed-loop behaviour. No training, rollout, conversion, or environment step was
+run. The material is architecture understanding only, and it does not move any
+gate item. The next step toward reading real code is to inspect ACT's transformer —
+whether `W_Q` is one large matrix, what the `reshape` splits, where `W_O` sits —
+together with which token group supplies `Q` versus `K/V`.
 
 ### 2026-09-23 — Notebook 3.5 (single-frame versus history policy) completed
 

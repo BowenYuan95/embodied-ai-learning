@@ -819,6 +819,56 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-23 — Notebook 3.5 (single-frame versus history policy) completed
+
+`notebooks/3.5_single_frame_vs_history_policy.ipynb` (14 cells: 10 markdown, 4 code)
+had a clean toy experiment — two trajectories whose position reaches `x_t = 0` with
+opposite hidden velocity, so the expert action is `-1` for one and `+1` for the other
+— but thin notes and two mangled formulas. Only markdown was edited; all four code
+cells keep their source, outputs and `execution_count`.
+
+Repaired: the broken `implicit state estimate` fragment, the pasted-flat reactive-VLA
+formula `(image t ,state t ,language)`, and the comparison table, which used tabs and
+could not render.
+
+Added structure and content:
+
+- a title, learning objectives and the roadmap mapping (3.6), plus sections 1–7 and a
+  Chinese summary;
+- the **POMDP framing** that the experiment is really about: hidden `s = (x, v)`,
+  observation `o = x`, a history policy `π(a_t | o_{1:t})`, the belief
+  `b_t(s) = P(s_t | o_{1:t})` and a memory recurrence
+  `m_t = update(m_{t-1}, o_t, a_{t-1})`;
+- the **conditional-mean derivation** of the failure: with `a* ∈ {-1, +1}` equally
+  likely given `o = 0`, the MSE-optimal prediction is `â = E[a* | o] = 0` and the
+  minimum loss is the conditional variance, `1`. The irreducible part of the error is
+  therefore *missing information*, not model capacity — a directly measurable claim
+  (the loss floors at 1 no matter how long it trains);
+- the **mixture identity** that separates the two kinds of multimodality:
+  `p(a | o) = Σ_s p(a | s) b(s)`. Action multimodality means `p(a | s)` is itself
+  multi-peaked; partial observability means a unimodal `p(a | s)` is mixed by a belief
+  `b(s)` that spans states requiring opposite actions. This also sharpens 3.4: no
+  generative model resolves the second case — only more information (history, memory,
+  or active sensing) does;
+- the **finite-difference velocity estimator** `v̂ ≈ (x_t − x_{t-1})/Δt` with two
+  engineering caveats: `Δt` must be known and consistent (this is exactly why the
+  repository's 20 Hz / 50 Hz timestamp defect matters), and differencing amplifies
+  observation noise by `1/Δt`, so a longer window is not automatically better;
+- why **frame stacking plus an MLP is sufficient** once information is present (the
+  layout preserves order, so the MLP can implement `x_t − x_{t-1}`), the fixed-window
+  cost, and the four-way comparison table (MLP, stacked MLP, RNN/LSTM, Transformer)
+  with a cost column;
+- a **diagnosis order** to prevent the usual misjudgement: first ask whether the
+  information exists, then whether the representation exposes it, and only then
+  whether capacity or optimisation is the limit;
+- an honest boundary in §7: memory addresses "the information is not in the current
+  observation", **not** data scarcity or distribution shift. Lesson 2's failure was the
+  latter (validation MSE `0.2350` worse than the baseline `0.1421`, `|z| = 13.21` on
+  held-out states, `0/10` closed-loop success), and a history window would not have
+  fixed it by itself.
+
+Nothing in this notebook was executed; the four recorded outputs are unchanged.
+
 ### 2026-09-23 — Notebooks grouped into per-lesson folders
 
 The curated notebooks were moved into `notebooks/lesson_0/`, `notebooks/lesson_1/`
@@ -864,6 +914,193 @@ Also updated:
 Working directories are safe either way: tested from `notebooks/`, `lesson_0/`,
 `lesson_1/` and `lesson_2/`, the resolver returns the repository root each time and
 finds `datasets/pickcube/expert_episodes.h5`.
+
+### 2026-09-23 — Notebook 3.4 (modern robot-learning policies) completed
+
+`notebooks/3.4_modern_robot_learning_policies.ipynb` was another all-markdown outline
+(15 cells, no code). It was completed with coherent numbering, repaired formatting,
+and formulas; their content — BC failure recap, DAgger, ACT, Diffusion Policy, VLA,
+the evolution table and the summary — is preserved.
+
+Repaired:
+
+- the ACT block was numbered `3.2` / `3.3` while sitting inside what is now the
+  DAgger section; sections are now 1 (BC recap), 2 (DAgger, 2.1–2.5),
+  3 (ACT, 3.1–3.3), 4 (Diffusion, 4.1–4.3), 5 (VLA), 6 (evolution), 小结;
+- the VLA architecture diagram had lost its structure while pasting and was
+  redrawn;
+- the "method evolution" block used tab-separated lines, which cannot render as a
+  table; it is now a markdown table with an added **"没有解决什么"** column.
+
+Formulas added, with the two load-bearing facts checked before writing:
+
+- **BC versus DAgger error scaling:** `J(π_θ) ≤ J(π_E) + O(εT²)` for BC and
+  `O(εT)` for DAgger, i.e. the horizon dependence is the difference (Ross &
+  Bagnell 2010; Ross, Gordon & Bagnell, AISTATS 2011 — confirmed by search);
+- **DAgger aggregation** with distinct symbols for the two objects that the
+  original text conflated: visited states `S_i = {o ~ d_{π_i}}` versus the labelled
+  set `D̃_i = {(o, π_E(o)) : o ∈ S_i}`, then `D_i = D_{i-1} ∪ D̃_i`, plus the
+  reminder that the new actions are the expert's `a*`, never the policy's `â`;
+- **ACT:** chunk `o_t → (a_t … a_{t+k})` and inference-time temporal ensembling
+  `a_t = Σ_i w_i â_{t,i} / Σ_i w_i` with `w_i = e^{-m i}`;
+- **Diffusion:** the DDPM objective
+  `L = E[‖ε − ε_θ(A_t, o_t, t)‖²]` with `A_t = √(ᾱ_t) A_0 + √(1−ᾱ_t) ε`, and
+  receding-horizon execution `k < H`;
+- **VLA:** the two action-head families (discrete action tokens versus a continuous
+  diffusion / flow-matching head such as `π0`'s action expert), with the action
+  semantics caveat this repository keeps insisting on.
+
+Teaching additions: §2.4 now connects DAgger's online-expert cost to the learner's
+own teleoperation / VR-intervention line (a real connection, not decoration), the
+evolution table makes explicit that each method fixes exactly one link in the
+chain, and the summary names the missing layer — task state, memory and recovery —
+as the project's direction rather than another policy architecture. No code cells
+exist in this notebook, so nothing was executed.
+
+### 2026-09-23 — Notebook 3.3 (open-loop loss vs closed-loop success) completed
+
+The learner wrote `notebooks/3.3_open_loop_loss_vs_closed_loop_success.ipynb` as a
+pure-markdown outline (22 cells, no code) and asked for it to be completed. It is
+now 24 markdown cells in a coherent order; there are no code cells, so no
+execution or output is involved.
+
+Completed and added:
+
+- **§1 MSE as an action-imitation metric:** the objective written with its
+  distributional precondition `o_t ~ D_E`, and the distinction
+  `Action imitation metric` versus `Task completion metric` stated as a
+  difference in *what is measured* (a function on given inputs versus a closed-loop
+  system over time).
+- **§2 open-loop evaluation as teacher forcing:** flow diagram, per-step loss
+  `ℓ_t = ||â_t - a_t*||²`, and the property that errors are not propagated because
+  the next input always comes from the expert.
+- **§3 closed-loop evaluation:** `o_{t+1} = f(o_t, π_θ(o_t))` with `o_t ~ D_π`, and
+  the point that `D_π ≠ D_E` is the normal case.
+- **§4 comparison table** plus the repository's own four numbers from Lesson 2 —
+  validation MSE `0.2350` (worse than the mean-action baseline `0.1421`), `0.2%`
+  of held-out actions out of bounds, `99.5%` of closed-loop steps clipped, `0/10`
+  seeded success — making the abstract distinction concrete.
+- **§5 evaluation axes:** offline metrics; online metrics with
+  `SR`, completion ratio and `G = Σ γ^t r_t`; robustness along object position,
+  sensor noise and disturbance; efficiency/safety (steps, clipping rate, collisions,
+  intervention rate); calibration and safe refusal; and a pointer to failure
+  analysis.
+- **§6 success-rate statistics (new):** the binomial standard error
+  `SE = sqrt(SR(1-SR)/K)` and the Clopper–Pearson one-sided bound
+  `SR_upper = 1 - (1-α)^{1/K}`, which for `0/10` gives `≈26%` — verified with
+  `scipy.stats.beta.ppf(0.95, 1, 10) = 0.2589`. This is why a single episode is a
+  case study rather than a rate, and why 2.8.8 was extended to ten seeds; the
+  evaluation protocol (steps, reset distribution, intervention, time limit) is also
+  listed as something that must be reported.
+- **§7 failure taxonomy** reformatted as a table with an **observable criterion**
+  for each of the learner's five classes (perception, planning, control,
+  distribution shift, recovery), with Lesson 2's failure identified as the
+  distribution-shift class.
+- **§8 ACT / Diffusion / VLA** with formulas: chunk prediction versus single-action
+  prediction, `p_θ(a | o)` versus point regression, and conditioning on
+  vision/language/memory — noting that each fixes a different part of the chain.
+
+Fixed while completing: the two LaTeX fragments that had been mangled during
+pasting (`a ^ t`, `o t ∼ D π`, `o t → a t`) are proper math again, and the section
+order was corrected to 1 → 2 → 3 → 4 → 5 (an earlier insertion had placed the
+comparison before the closed-loop section).
+
+### 2026-09-23 — Notebook 3.2 (covariate shift / compounding error) completed with formulas
+
+The learner wrote `notebooks/3.2_covariate_shift_and_compounding_error.ipynb` (they
+also renamed it themselves to the project's `lesson_substep_topic.ipynb`
+convention) and asked for the notes to be completed. Their experiment is a 2-D
+tracking task: `expert_policy = goal - position`, `step = position + 0.1*action`,
+a BC policy with gain `0.8`, and an inaccurate variant whose action noise is
+proportional to `||position||`. Only markdown was edited; all 9 code cells keep
+their source, outputs, and `execution_count` byte-for-byte (16 → 21 cells).
+
+Added:
+
+- **Terminology separated:** covariate shift (`d_{π_θ}(o) ≠ d_{π_E}(o)`) versus
+  compounding error (error growth over the horizon) as two views of one loop.
+- **Closed-loop recurrence derived from the learner's own code:**
+  `e_{t+1} = (1 - 0.1k) e_t`, hence `e_t = (1 - 0.1k)^t e_0` with
+  `||e_0|| = 14.142`, and a contraction table — expert `k=1 → 0.90`,
+  BC `k=0.8 → 0.92`, zero gain `k=0 → 1.00`, wrong sign `k=-1 → 1.10`.
+  Divergence is exactly `|1 - 0.1k| > 1`.
+- **General accumulation form:** `e_T ≈ Σ (∂f/∂o)^k (∂f/∂a) ε`, i.e. the error is
+  repeatedly multiplied by the state Jacobian, with the spectrum of `∂f/∂o`
+  deciding bounded drift versus blow-up. This is why BC's objective (small `ε` on
+  `d_{π_E}`) says nothing about the loop.
+- **Measured numbers**, obtained by re-running the notebook's own definitions in a
+  scratch process outside the repository: expert `||e_50|| = 0.0729` versus BC
+  `||e_50|| = 0.2187` (both matching the closed form), and BC's offline action MSE
+  on the **expert** state distribution `≈ 0.826` (RMS `0.909` against an initial
+  action scale of `14`) — the toy analogue of Lesson 2's misleadingly small
+  validation MSE.
+- **An honest boundary for the bad-policy figure:** the state-dependent noise makes
+  the loop wander, not explode. Over 200 rollouts the final error averages `0.303`
+  (median `0.292`, p95 `0.560`), the maximum deviation from the noiseless BC path
+  averages `0.373` (p95 `0.527`), and the largest error equals the initial `14.142`
+  — it never becomes worse than the start, because the loop is still contractive
+  (`0.92`). Divergence requires `|1 - 0.1k| > 1`; with `k = -1` the same 50 steps
+  give `1660`.
+- **Reproducibility caveat recorded:** the rollout cells do not seed the RNG, so
+  per-figure values differ between runs; the measurements above are statistics over
+  seeds, and fixing a seed (as 2.8.7 requires) is the precondition for quoting
+  single numbers.
+- **§6 foreshadows the fixes** with formulas: BC predicts one action, ACT predicts a
+  chunk (fewer decision points), Diffusion models `p(A | o)` for multimodal
+  actions, and DAgger fixes the data side. The notebook's subject maps to roadmap
+  3.4 (distribution shift); DAgger is 3.5 and chunking is 3.7.
+
+### 2026-09-23 — Notebook 3.1 reorganized around the learner's one-dimensional experiment
+
+The learner renamed the lesson notebook to
+`notebooks/3.1_imitation_learning_foundation.ipynb` and prepended their own
+walkthrough of Behavior Cloning: a 1-D toy system where the expert policy is
+`a = -s`, a "trained" policy is `a = -0.9s`, plus noisy and inaccurate rollout
+variants, with an eight-section outline left as placeholder headings. They asked
+for the notes to be organized around **their** content, with added detail and
+formulas. Only markdown cells were edited; all 12 code cells keep their source,
+outputs, and `execution_count` byte-for-byte.
+
+Structure now (32 cells, 20 markdown):
+
+- the intro states the lesson question, splits the notebook into **Part A (1-D toy
+  system, derived by hand)** and **Part B (real PickCube data, must be measured)**,
+  and fixes a single notation set (`o_t`, `s_t`, `a_t`, `π_E`, `π_θ`, `d_{π_E}`,
+  `d_{π_θ}`);
+- Part A follows the learner's own outline 1–8: supervised versus imitation
+  learning, the formal BC objective, the expert dataset, training the toy policy,
+  offline evaluation, closed-loop rollout, why BC fails, summary;
+- the eight trailing placeholder headings were removed because every section now
+  has a real heading in place, and cell 17 became the Part B divider;
+- Part B keeps the learner's 3.1.1–3.1.5 text and summary.
+
+Formulas and measurements added (all checkable against the notebook's own cells):
+
+- empirical-risk vs imitation objective, and the i.i.d. assumption that imitation
+  breaks because `o_t ~ d_{π_E}` is generated by the policy being imitated;
+- the BC objective in both stochastic and deterministic-continuous form, plus why
+  MSE corresponds to a fixed-variance Gaussian likelihood and cross-entropy to the
+  categorical case;
+- toy dynamics `s_{t+1} = s_t + a_t` with `a_t = -γ s_t`, hence
+  `s_t = (1-γ)^t s_0`, with the three regimes `γ = 1` (one step), `γ = 0.9`
+  (converges but lingers off the expert's states), and `|1-γ| > 1` (diverges);
+- offline evaluation for the toy policy:
+  `L_offline = 0.1² × 25/3 ≈ 0.083`, i.e. about 1% of the state variance — the
+  number that looks good and proves nothing about closed-loop behaviour;
+- the noisy rollout as an AR(1) process with stationary variance
+  `σ² / (1 - (1-γ)²)`: `≈1.01σ²` at `γ = 0.9` versus `≈1.33σ²` at `γ = 0.5`, so a
+  less accurate policy spends its time in a wider state distribution;
+- Part B now carries the real numbers as the entry point: the `1.0x`
+  consecutive-versus-random ratio on the random fixture (with the `8.8×–13.7×`
+  expert-episode contrast), the `0.12165` nearest-neighbour distance after a
+  `0.02012` perturbation, and Lesson 2's `0.2350` vs `0.1421` validation result
+  with the `0.2%`-versus-`99.5%` clipping contrast.
+
+Also corrected: the stale "the next step is 2.8.7" lines now point at the actual
+Lesson 2 outcome, and the duplicated/typo'd heading `# 3. Formal Defination of BC`
+was replaced by one formal-definition section. The `../notebooks/...` path style
+introduced by an earlier edit in this file was normalized back to repository-root
+relative paths.
 
 ### 2026-09-22 — Repository cleanup: build artifacts, old setup script, planner probe
 

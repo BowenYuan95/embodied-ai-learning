@@ -150,8 +150,9 @@ embodied-ai-learning/
 │   │   └── 2.9_expert_demonstrations.ipynb
 │   ├── 3.1_imitation_learning_foundation.ipynb
 │   ├── 3.2_covariate_shift_and_compounding_error.ipynb
-│   ├── 3.3_Open-loop Loss vs Closed-loop Success.ipynb
-│   └── 3.4_modern_robot_learning_policies.ipynb
+│   ├── 3.3_open_loop_loss_vs_closed_loop_success.ipynb
+│   ├── 3.4_modern_robot_learning_policies.ipynb
+│   └── 3.5_single_frame_vs_history_policy.ipynb
 ├── notes/
 │   ├── concepts.md
 │   └── progress.md

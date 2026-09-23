@@ -41,10 +41,10 @@ conversion path.
 | File | What it did | Superseded by |
 |---|---|---|
 | `convert_maniskill_to_lerobot.py` | Standalone HDF5 to LeRobot v3 conversion with hard-coded features | `scripts/run_pipeline.py`, which drives `scripts/pipeline/` through load, validate, convert, post-validate, report, and manifest |
-| `validate_maniskill_rollout.py` | Checked shapes, field-length consistency, `next_observations` continuity, state change, episode semantics, and `elapsed_steps` | The "Validate the trajectory files" cells in `notebooks/2.4_observation_schema.ipynb`, which run the same checks on all three HDF5 files |
-| `compare_random_datasets.py` | Compared the synthetic and original rollout variants statistically | The dataset-lineage and shape-comparison cells in `notebooks/2.4_observation_schema.ipynb` |
+| `validate_maniskill_rollout.py` | Checked shapes, field-length consistency, `next_observations` continuity, state change, episode semantics, and `elapsed_steps` | The "Validate the trajectory files" cells in `notebooks/lesson_2/2.4_observation_schema.ipynb`, which run the same checks on all three HDF5 files |
+| `compare_random_datasets.py` | Compared the synthetic and original rollout variants statistically | The dataset-lineage and shape-comparison cells in `notebooks/lesson_2/2.4_observation_schema.ipynb` |
 | `dataset_report.py` | Standalone HDF5 overview, reward/action/temporal statistics, integrity checks, and action-curve plots | `scripts/pipeline/reporter.py`, which performs the same 13 functions as part of conversion rather than as a separate script. Only `main`, `load_h5`, and `run_quality_checks` were standalone orchestration |
-| `test_observation_adapter.py` | Asserted the 28-d / 14-d deployable-versus-privileged partition sums to 42 | The same assertion, in place, in `notebooks/1.1_state_and_observation.ipynb` |
+| `test_observation_adapter.py` | Asserted the 28-d / 14-d deployable-versus-privileged partition sums to 42 | The same assertion, in place, in `notebooks/lesson_1/1.1_state_and_observation.ipynb` |
 
 The Lesson 2 tools that remain in `scripts/` are the ones that produce data or prove
 the acceptance gate: `collect_pickcube_random_rollout.py` (source data),
@@ -85,7 +85,7 @@ robustness or Sim2Real lesson, but they are not part of Lesson 0, 1, or 2.
 | `perception_noise_task_tolerance.py` | Compared noise levels against task tolerances | Exploratory |
 | `test_mplib_panda.py` | Constructed an `mplib.Planner` directly from the Panda URDF/SRDF with hard-coded absolute paths | Debug probe |
 | `test_planner.py` | Printed the Panda URDF/SRDF paths, links, and joints to set up that planner | Debug probe |
-| `test_pick_cube_expert.py` | Ran ManiSkill's stock `pick_cube` solver end to end with `render_mode="human"` and printed `env.unwrapped.evaluate()` | Debug probe — superseded by `scripts/generate_expert_demo.py` (batch collection in `embodied310`) and by `notebooks/2.8_check_data.ipynb` / `2.9_expert_demonstrations.ipynb`. It has no `main` guard, so it executes on import and cannot be inspected safely |
+| `test_pick_cube_expert.py` | Ran ManiSkill's stock `pick_cube` solver end to end with `render_mode="human"` and printed `env.unwrapped.evaluate()` | Debug probe — superseded by `scripts/generate_expert_demo.py` (batch collection in `embodied310`) and by `notebooks/lesson_2/2.8_check_data.ipynb` / `2.9_expert_demonstrations.ipynb`. It has no `main` guard, so it executes on import and cannot be inspected safely |
 
 `test_mplib_panda.py` and `test_planner.py` were written while diagnosing why
 ManiSkill's motion planner fails. That diagnosis is now settled and was **not** what

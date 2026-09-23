@@ -132,19 +132,26 @@ embodied-ai-learning/
 ├── environment/
 │   └── setup_linux_v3.sh
 ├── notebooks/
-│   ├── 0_environment_check.ipynb
-│   ├── 1.1_state_and_observation.ipynb
-│   ├── 1.2_action_space_and_control_modes.ipynb
-│   ├── 1.3_coordinate_frames.ipynb
-│   ├── 2.1_environment_and_rollout.ipynb
-│   ├── 2.3_time_alignment.ipynb
-│   ├── 2.4_observation_schema.ipynb
-│   ├── 2.5_generate_lerobot_dataset.ipynb
-│   ├── 2.6_dataset_dataloader.ipynb
-│   ├── 2.7_bc_training_loop.ipynb
-│   ├── 2.8_check_data.ipynb     scratch notebook, in active use
-│   ├── 2.9_expert_demonstrations.ipynb
-│   └── 3.1_imitation_learning_intro.ipynb
+├── notebooks/
+│   ├── lesson_0/
+│   │   └── 0_environment_check.ipynb
+│   ├── lesson_1/
+│   │   ├── 1.1_state_and_observation.ipynb
+│   │   ├── 1.2_action_space_and_control_modes.ipynb
+│   │   └── 1.3_coordinate_frames.ipynb
+│   ├── lesson_2/
+│   │   ├── 2.1_environment_and_rollout.ipynb
+│   │   ├── 2.3_time_alignment.ipynb
+│   │   ├── 2.4_observation_schema.ipynb
+│   │   ├── 2.5_generate_lerobot_dataset.ipynb
+│   │   ├── 2.6_dataset_dataloader.ipynb
+│   │   ├── 2.7_bc_training_loop.ipynb
+│   │   ├── 2.8_check_data.ipynb     scratch notebook, in active use
+│   │   └── 2.9_expert_demonstrations.ipynb
+│   ├── 3.1_imitation_learning_foundation.ipynb
+│   ├── 3.2_covariate_shift_and_compounding_error.ipynb
+│   ├── 3.3_Open-loop Loss vs Closed-loop Success.ipynb
+│   └── 3.4_modern_robot_learning_policies.ipynb
 ├── notes/
 │   ├── concepts.md
 │   └── progress.md
@@ -172,13 +179,20 @@ semantics conversion (`generate_expert_demo.py`,
 
 Scripts that were retired are listed in `archive/README.md` with the reason and their
 replacement. The trajectory-validation checks that used to live in three standalone
-scripts now run as cells in `notebooks/2.4_observation_schema.ipynb`.
+scripts now run as cells in `notebooks/lesson_2/2.4_observation_schema.ipynb`.
 
 Notebook names are `lesson_substep_topic.ipynb`, so the filename states which part of
-`docs/roadmap_v3.md` the notebook belongs to. `1.x` covers robot representation, `2.x`
-the dataset-to-training pipeline, and `3.1` opens imitation learning. The scratch
-notebook `2.8_check_data.ipynb` interleaves environment experiments and is not part of
-the curated sequence.
+`docs/roadmap_v3.md` the notebook belongs to, and each lesson gets its own folder:
+`notebooks/lesson_0/`, `notebooks/lesson_1/`, `notebooks/lesson_2/`. Lessons 3.x are
+still directly under `notebooks/` while that lesson is in progress. `1.x` covers robot
+representation, `2.x` the dataset-to-training pipeline, and `3.1` opens imitation
+learning. The scratch notebook `2.8_check_data.ipynb` interleaves environment
+experiments and is not part of the curated sequence.
+
+Every notebook that touches files resolves them by walking up to the repository root
+until it finds `.git`, so it runs correctly whether the kernel starts in the repository
+root, in `notebooks/`, or in a lesson folder. Do not reintroduce `Path.cwd()`-relative
+dataset paths.
 
 The curated notebooks are committed with executed outputs and are the **single source
 of truth** for their own code and prose; there is no generator any more.
@@ -272,7 +286,7 @@ The current collector is intended for pipeline validation. A random rollout is n
 Use the dataset notebook:
 
 ```bash
-jupyter lab "notebooks/2.2_2.6_inspect_trajectory_and_observation_schema.ipynb"
+jupyter lab "notebooks/lesson_2/2.2_2.6_inspect_trajectory_and_observation_schema.ipynb"
 ```
 
 The inspection process checks:

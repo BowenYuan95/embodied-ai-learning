@@ -51,7 +51,7 @@ One further sub-step exists outside that sequence:
 |---|---|---|
 | 2.9 | 专家演示：ManiSkill motion planner 生成成功 episode | **Complete `[verified]`** — 5/5 成功，360 actions / 365 observations |
 
-**2.9 — 专家演示（数据资产）.** `notebooks/2.9_expert_demonstrations.ipynb`
+**2.9 — 专家演示（数据资产）.** `notebooks/lesson_2/2.9_expert_demonstrations.ipynb`
 plus `scripts/generate_expert_demo.py` drive ManiSkill's own sampling-based motion
 planner and record five successful `PickCube-v1` episodes into
 `datasets/pickcube/expert_episodes.h5` (`T = 74 / 74 / 50 / 86 / 76` actions,
@@ -199,7 +199,7 @@ Interpretation, and the reason 2.8.7 came next:
 
 ### 2.8.7 — Train/validation split (episode-level)
 
-`[verified]` from the executed cells of `notebooks/2.8_check_data.ipynb`
+`[verified]` from the executed cells of `notebooks/lesson_2/2.8_check_data.ipynb`
 (section `2.8.7`), on `datasets/pickcube/expert_episodes.h5`:
 
 | Item | Value |
@@ -285,7 +285,7 @@ is why the 200-step configuration had to assert the effective limit explicitly.
   *where* the object and goal are, not in *how* the task is performed, because all
   episodes come from the same scripted planner recipe.
 - [x] Notebook exists, is corrected, and is executed. `[verified]` —
-  `notebooks/2.9_expert_demonstrations.ipynb`, 23 cells (14 markdown / 9 code),
+  `notebooks/lesson_2/2.9_expert_demonstrations.ipynb`, 23 cells (14 markdown / 9 code),
   all code cells executed with zero error outputs, kernel `embodied`. Section
   `2.9.9` adds a self-contained contract check: it asserts the `T+1`/`T` schema
   for all five episodes and replays `episode_000000`, reporting
@@ -593,7 +593,7 @@ file all five episodes carry `success=True`.
 ### 2.9 documentation corrections `[resolved 2026-09-22]`
 
 Resolved: `scripts/generate_expert_demo.py` was rewritten and
-`notebooks/2.9_expert_demonstrations.ipynb` was corrected (sections 2.9.2, "How
+`notebooks/lesson_2/2.9_expert_demonstrations.ipynb` was corrected (sections 2.9.2, "How
 the planner executes its actions", 2.9.6, 2.9.7, 2.9.8, takeaways) and
 re-executed end to end with zero errors, kernel `embodied`. The three issues are
 kept below as the record of what was wrong.
@@ -601,7 +601,7 @@ kept below as the record of what was wrong.
 The three issues were (`[verified]` by reading the installed planner source and
 replaying the data):
 
-1. `notebooks/2.9_expert_demonstrations.ipynb` (section 2.9.6) and
+1. `notebooks/lesson_2/2.9_expert_demonstrations.ipynb` (section 2.9.6) and
    `scripts/generate_expert_demo.py:23–24` stated that the `(o_t, a_t)` pairing
    "holds by construction". It did not — see "Expert HDF5 stored post-action
    observations".
@@ -642,7 +642,7 @@ step.
 
 ### 3.1 leakage measurement is fixture-dependent
 
-`[verified]` `notebooks/3.1_imitation_learning_intro.ipynb` measures the distance
+`[verified]` `notebooks/3.1_imitation_learning_foundation.ipynb` measures the distance
 between consecutive frames against the distance between random frame pairs, and
 concludes that a frame-level split leaks. On the **random fixture currently in
 use** the measurement does not support that conclusion:
@@ -662,10 +662,16 @@ data the notebook currently loads*. Either the 3.1 experiment should be re-run o
 converted expert episodes, or the notebook should state that the effect is not
 visible on the random fixture. Do not promote the claim without that change.
 
+`[partly addressed 2026-09-23]` The notebook markdown now states this explicitly:
+the cell that measures `1.0x` is annotated as measuring the random fixture, with
+the expert-episode ratio `8.8×–13.7×` given for contrast. The **code** still loads
+the random fixture, so re-pointing the measurement at the expert episodes remains
+a suggested edit, not a completed one.
+
 ### Notebook numbering: `2.9` versus a roadmap sequence ending at `2.8.8`
 
 `[verified]` `docs/roadmap_v3.md` (and this file's sub-step table) number Lesson 2
-as `2.1`–`2.8.8`, with no `2.9`, while `notebooks/2.9_expert_demonstrations.ipynb`
+as `2.1`–`2.8.8`, with no `2.9`, while `notebooks/lesson_2/2.9_expert_demonstrations.ipynb`
 exists and README refers to "Expert demonstrations (2.9)". The mismatch is a
 documentation defect, not a data defect. Renaming the notebook or adding a 2.9
 slot to the roadmap is a decision for the learner; it is recorded here instead of
@@ -751,7 +757,7 @@ reusable gate check that performs full-frame validation.
 `AGENTS.md` defines a separate gate for the baseline BC artifact:
 "do not treat baseline BC as complete until all of the following are
 evidenced". Assessed against the executed notebook
-(`notebooks/2.8_check_data.ipynb`) and the on-disk checkpoint:
+(`notebooks/lesson_2/2.8_check_data.ipynb`) and the on-disk checkpoint:
 
 | # | Requirement | Status | Evidence |
 |---:|---|---|---|
@@ -806,12 +812,58 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
-`notebooks/3.1_imitation_learning_intro.ipynb` already exists and executes. Its
+`notebooks/3.1_imitation_learning_foundation.ipynb` already exists and executes. Its
 frame-level leakage cell still points at the random fixture, where the measured
 ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expert
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-23 — Notebooks grouped into per-lesson folders
+
+The curated notebooks were moved into `notebooks/lesson_0/`, `notebooks/lesson_1/`
+and `notebooks/lesson_2/` with `git mv`, so history follows the files. Lessons 3.x
+stay directly under `notebooks/` while that lesson is in progress.
+
+| Folder | Contents |
+|---|---|
+| `notebooks/lesson_0/` | `0_environment_check.ipynb` |
+| `notebooks/lesson_1/` | `1.1`, `1.2`, `1.3` |
+| `notebooks/lesson_2/` | `2.1`, `2.3`, `2.4`, `2.5`, `2.6`, `2.7`, `2.8_check_data`, `2.9` |
+
+Verified `[verified]`: eleven of the twelve moves are byte-identical renames
+(compared against `HEAD`, including code sources, outputs and `execution_count`),
+so no recorded evidence changed.
+
+One notebook needed a real change. `2.8_check_data.ipynb` resolved its dataset with
+a working-directory heuristic:
+
+```python
+if Path.cwd().name == "notebooks":
+    project_root = Path.cwd().parent
+else:
+    project_root = Path.cwd()
+```
+
+Run from `notebooks/lesson_2/` that resolves the project root to the lesson folder,
+so the dataset assert would fail. Its loader cell now uses the same walk-up-to-`.git`
+resolver as every other notebook. The cell's recorded output and `execution_count`
+are unchanged, because the resolved path is identical from either working directory.
+This is the only code-cell edit in the reorganization and it is the reason the
+notebook shows as a rename **plus** modification rather than a pure rename.
+
+Also updated:
+
+- 22 path references across `README.md`, `notes/progress.md` and
+  `archive/README.md` now point at `notebooks/lesson_N/...`; a sweep for
+  `notebooks/[012].` finds none left;
+- `README.md` gained the new notebook tree and a paragraph recording the rule that
+  notebooks resolve files by walking up to `.git` and must not reintroduce
+  `Path.cwd()`-relative dataset paths.
+
+Working directories are safe either way: tested from `notebooks/`, `lesson_0/`,
+`lesson_1/` and `lesson_2/`, the resolver returns the repository root each time and
+finds `datasets/pickcube/expert_episodes.h5`.
 
 ### 2026-09-22 — Repository cleanup: build artifacts, old setup script, planner probe
 
@@ -961,7 +1013,7 @@ two cheap items were added to `Immediate Next Steps`.
 
 ### 2026-09-22 — Lesson 2 closed: 2.8.7 and 2.8.8 verified as a negative result
 
-The learner completed 2.8.7 and 2.8.8 in `notebooks/2.8_check_data.ipynb` and asked
+The learner completed 2.8.7 and 2.8.8 in `notebooks/lesson_2/2.8_check_data.ipynb` and asked
 for the result to be recorded without treating it as a training-code failure. It is
 not one: the code did exactly what the lesson needs.
 
@@ -1140,7 +1192,7 @@ generic dependency wording was kept.
 
 ### 2026-09-22 — `2.8.6` planner construction verified by an actual run (parallel work)
 
-`notebooks/2.8_check_data.ipynb` gained three executed cells while this session
+`notebooks/lesson_2/2.8_check_data.ipynb` gained three executed cells while this session
 was running (54 → 55 cells, `execution_count` 35/36/37). They were not written by
 this session and were left untouched; what they prove is recorded here.
 
@@ -1167,7 +1219,7 @@ repeating a planner run costs minutes for no new information.
 
 ### 2026-09-22 — `2.9.9` transition-contract section found in the working tree; prose translated
 
-`notebooks/2.9_expert_demonstrations.ipynb` gained three cells while this session
+`notebooks/lesson_2/2.9_expert_demonstrations.ipynb` gained three cells while this session
 was running (13 markdown / 7 code → 14 markdown / 9 code): a new section
 `2.9.9 — Validate the expert transition contract` with two executed code cells.
 The cells were not written by this session and were left functionally untouched.
@@ -1191,14 +1243,14 @@ Follow-up on the `shuffle` mismatch found during the translation review. The
 learner fixed the policy, so the open item is resolved and the notebook was
 relabelled to match its actual role.
 
-- `notebooks/2.6_dataset_dataloader.ipynb`: the loader is now
+- `notebooks/lesson_2/2.6_dataset_dataloader.ipynb`: the loader is now
   `inspection_loader` with `shuffle=False`, and the markdown states explicitly
   that it exists for reproducible inspection and preserves trajectory order, that
   shuffling is a training-time choice, and that frame-level shuffling must not be
   reused once temporal windows or multiple episodes exist. Re-executed: all 10
   code cells run with zero errors, and the printed batch shows
   `frame_index [0..7]` with `timestamp 0.00 … 0.14`.
-- `notebooks/2.7_bc_training_loop.ipynb` already defines its own
+- `notebooks/lesson_2/2.7_bc_training_loop.ipynb` already defines its own
   `train_loader(..., shuffle=True)`, so it needed no change and was not
   re-executed; the recorded 100-epoch loss curve is unaffected by a rename in a
   different notebook.
@@ -1294,7 +1346,7 @@ Changes:
 - `datasets/pickcube/expert_episodes.h5` regenerated in `embodied310`
   (`--seeds 0 1 2 3 4 --overwrite`): 5/5 successful, `T = 74 / 74 / 50 / 86 / 76`,
   `T+1 = 75 / 75 / 51 / 87 / 77`.
-- `notebooks/2.9_expert_demonstrations.ipynb` corrected and re-executed:
+- `notebooks/lesson_2/2.9_expert_demonstrations.ipynb` corrected and re-executed:
   - cell 5's printed narrative now distinguishes the arm phase (8-d, silently
     misread in delta mode) from the gripper helpers (15-d, rejected);
   - the "bypasses `env.step`" section was replaced by "How the planner executes
@@ -1486,7 +1538,7 @@ replay verification.
 ### 2026-09-22 — Lesson 2 收尾阶段同步与 2.8.6 复现
 
 - Re-read the notebook now named
-  `notebooks/2.7_2.8_bc_training_pipeline.ipynb` (40 cells at the time; renamed
+  `notebooks/lesson_2/2.7_2.8_bc_training_pipeline.ipynb` (40 cells at the time; renamed
   and markdown-organized on 2026-09-22 without re-executing it) and confirmed that
   2.7 through 2.8.6 are implemented there: `DataLoader` with `batch_size=8`,
   `MLPPolicy` with `Tanh` output, `nn.MSELoss()`, `Adam(lr=1e-3)`, and a
@@ -1751,7 +1803,7 @@ into the relevant notebook, or archive it.
 | `replay_pickcube_episode.py` | produces the acceptance-gate replay evidence |
 | `build_lesson_notebooks.py` | one-off notebook generator |
 
-**Moved into `notebooks/2.4_observation_schema.ipynb`** as executable cells, then
+**Moved into `notebooks/lesson_2/2.4_observation_schema.ipynb`** as executable cells, then
 archived:
 
 - `validate_maniskill_rollout.py` — schema, field-length consistency, shape, numeric
@@ -1785,7 +1837,7 @@ planner segfault. The diagnosis is recorded; the probes are not portable.
 - A later attempt to turn the adapter into a "test" would have duplicated its four
   descriptive lines, so it was archived as a probe instead. The single source of truth
   is `scripts/observation_adapter.py`, demonstrated in
-  `notebooks/1.1_state_and_observation.ipynb`.
+  `notebooks/lesson_1/1.1_state_and_observation.ipynb`.
 - `scripts/figures/` and `scripts/reports/` were **kept**: `pipeline/config.py`
   defines them as the pipeline's own output directories, so they are live, not
   leftovers from the retired script.

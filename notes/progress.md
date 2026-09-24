@@ -828,6 +828,48 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-24 — StackCube grounding, step 2: the contract variant
+
+`scripts/stackcube_contract.py` fixes the data and observation contract for the referential-
+grounding experiment, and `validate_against_env` asserts every part of it against a freshly
+built environment (CPU, no planner needed).
+
+**Where the target's identity lives.** This is the property the whole experiment rests on: the
+*colour* exists only in the image, and *which* colour is wanted only in the instruction.
+Nothing in the robot state says which cube is the target, so no state field can leak it. The
+state fields describing the cubes are excluded for lesson 3.8.1's ordinary reason -- they are
+simulator ground truth for quantities a real robot estimates from vision -- not because they
+identify the target. At `t = 0` the two tasks come from the same reset, so their state *and*
+scene are identical and a policy given no instruction faces a symmetric choice: best accuracy
+50%.
+
+**Field contract.** proprio is `agent.qpos[0:9] + agent.qvel[9:18] + extra.tcp_pose[18:25]`
+= **25 dims, identical in kind and order to 3.8.1**. Excluded is `extra.cubeA_pose[25:32] +
+extra.cubeB_pose[32:39] + extra.tcp_to_cubeA_pos[39:42] + extra.tcp_to_cubeB_pos[42:45] +
+extra.cubeA_to_cubeB_pos[45:48]` = 23 dims. 25 + 23 = 48, asserted. **There is no goal field**,
+so unlike 3.8.1's contract there is no `task_goal` input and no place to hide the answer; the
+episodes are truncated after the lift precisely so no destination exists.
+
+**Camera contract**, from the measured sweep: `fov 60 deg` (down from the default 90),
+`512x512` (up from 128), and the camera **pose left at the environment default** so no camera
+geometry is redefined. That puts a cube's side at 16.3 px instead of 2.8, and 4.06 px after the
+4x downsampling this task's encoder uses (two stride-2 blocks rather than four): no camera
+configuration survives 16x, the best being 1.82 px.
+
+**Action contract.** `control_mode="pd_joint_pos"`, asserted by the stock planner and identical
+to PickCube/PushCube, so the action side stays frozen while only the input side moves.
+StackCube's *default* is `pd_joint_delta_pos`, which would have changed action semantics
+silently.
+
+**Language.** "pick the red cube" / "pick the green cube", both 4 words so `T_TXT = 6` with no
+padding in either. The two differ in **exactly one token** (id 7 versus 5 at position 3), so
+the model has one embedding to work with and the signal is minimal and clean. Because neither
+instruction pads, the `drop` mode is genuinely out of distribution -- which is why 3.8.4.6
+requires instruction dropout during training rather than at test time.
+
+Validated: both tasks give `image (512,512,3) uint8`, `proprio (25,) float32`,
+`language_ids (6,) int64`, `action_chunk (8,8) float32`, and `task_goal` is absent.
+
 ### 2026-09-24 — StackCube grounding experiment, step 1: the planner works, but the camera is too coarse
 
 **The planner runs only under `embodied310`.** 9/9 configurations segfault (exit -11) in

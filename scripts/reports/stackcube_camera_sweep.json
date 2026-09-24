@@ -1,0 +1,1393 @@
+{
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "configs": [
+    {
+      "config": "default_128",
+      "res": 128,
+      "fov": 1.5707963267948966,
+      "eye": [
+        0.3,
+        0.0,
+        0.6
+      ],
+      "target": [
+        -0.1,
+        0.0,
+        0.1
+      ],
+      "cubeA_px": 8.0,
+      "cubeB_px": 6.333333333333333,
+      "side_a": 2.8284271247461903,
+      "side_b": 2.516611478423583,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            128,
+            128,
+            3
+          ],
+          "cubeA": {
+            "pixels": 10,
+            "side": 3.1622776601683795,
+            "mean_rgb": [
+              171.4,
+              48.1,
+              29.2
+            ],
+            "rg": 123.3,
+            "centroid": [
+              55.9,
+              70.7
+            ]
+          },
+          "cubeA_proj_uv": [
+            55.4,
+            69.8
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 1.0,
+          "cubeB": {
+            "pixels": 5,
+            "side": 2.23606797749979,
+            "mean_rgb": [
+              40.4,
+              142.8,
+              15.4
+            ],
+            "rg": -102.4,
+            "centroid": [
+              74.6,
+              74.4
+            ]
+          },
+          "cubeB_proj_uv": [
+            74.3,
+            73.4
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 1.1,
+          "localised": true,
+          "separation_px": 19.1
+        },
+        {
+          "seed": 1,
+          "image": [
+            128,
+            128,
+            3
+          ],
+          "cubeA": {
+            "pixels": 7,
+            "side": 2.6457513110645907,
+            "mean_rgb": [
+              163.1,
+              34.9,
+              22.1
+            ],
+            "rg": 128.3,
+            "centroid": [
+              70.1,
+              81.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            69.1,
+            79.8
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 1.8,
+          "cubeB": {
+            "pixels": 8,
+            "side": 2.8284271247461903,
+            "mean_rgb": [
+              22.0,
+              142.9,
+              8.5
+            ],
+            "rg": -120.9,
+            "centroid": [
+              71.5,
+              74.5
+            ]
+          },
+          "cubeB_proj_uv": [
+            71.3,
+            73.1
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 1.4,
+          "localised": true,
+          "separation_px": 6.9
+        },
+        {
+          "seed": 2,
+          "image": [
+            128,
+            128,
+            3
+          ],
+          "cubeA": {
+            "pixels": 7,
+            "side": 2.6457513110645907,
+            "mean_rgb": [
+              197.9,
+              78.3,
+              46.7
+            ],
+            "rg": 119.6,
+            "centroid": [
+              60.9,
+              83.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            60.4,
+            81.6
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 1.8,
+          "cubeB": {
+            "pixels": 6,
+            "side": 2.449489742783178,
+            "mean_rgb": [
+              0.0,
+              148.0,
+              0.0
+            ],
+            "rg": -148.0,
+            "centroid": [
+              66.8,
+              84.7
+            ]
+          },
+          "cubeB_proj_uv": [
+            66.5,
+            83.2
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 1.6,
+          "localised": true,
+          "separation_px": 6.1
+        }
+      ]
+    },
+    {
+      "config": "default_256",
+      "res": 256,
+      "fov": 1.5707963267948966,
+      "eye": [
+        0.3,
+        0.0,
+        0.6
+      ],
+      "target": [
+        -0.1,
+        0.0,
+        0.1
+      ],
+      "cubeA_px": 25.666666666666668,
+      "cubeB_px": 22.0,
+      "side_a": 5.066228051190222,
+      "side_b": 4.69041575982343,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 28,
+            "side": 5.291502622129181,
+            "mean_rgb": [
+              152.5,
+              12.1,
+              7.8
+            ],
+            "rg": 140.4,
+            "centroid": [
+              110.9,
+              141.8
+            ]
+          },
+          "cubeA_proj_uv": [
+            110.7,
+            139.7
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 2.1,
+          "cubeB": {
+            "pixels": 15,
+            "side": 3.872983346207417,
+            "mean_rgb": [
+              49.1,
+              137.4,
+              17.9
+            ],
+            "rg": -88.3,
+            "centroid": [
+              149.4,
+              149.5
+            ]
+          },
+          "cubeB_proj_uv": [
+            148.7,
+            146.8
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 2.8,
+          "localised": true,
+          "separation_px": 39.3
+        },
+        {
+          "seed": 1,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 24,
+            "side": 4.898979485566356,
+            "mean_rgb": [
+              170.8,
+              38.9,
+              24.7
+            ],
+            "rg": 131.9,
+            "centroid": [
+              139.3,
+              163.2
+            ]
+          },
+          "cubeA_proj_uv": [
+            138.3,
+            159.6
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 3.7,
+          "cubeB": {
+            "pixels": 27,
+            "side": 5.196152422706632,
+            "mean_rgb": [
+              32.1,
+              145.8,
+              11.4
+            ],
+            "rg": -113.7,
+            "centroid": [
+              143.6,
+              149.3
+            ]
+          },
+          "cubeB_proj_uv": [
+            142.5,
+            146.2
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 3.3,
+          "localised": true,
+          "separation_px": 14.5
+        },
+        {
+          "seed": 2,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 25,
+            "side": 5.0,
+            "mean_rgb": [
+              176.5,
+              48.5,
+              29.6
+            ],
+            "rg": 128.0,
+            "centroid": [
+              121.9,
+              166.4
+            ]
+          },
+          "cubeA_proj_uv": [
+            120.8,
+            163.2
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 3.4,
+          "cubeB": {
+            "pixels": 24,
+            "side": 4.898979485566356,
+            "mean_rgb": [
+              17.0,
+              149.9,
+              6.5
+            ],
+            "rg": -132.9,
+            "centroid": [
+              133.8,
+              169.8
+            ]
+          },
+          "cubeB_proj_uv": [
+            133.1,
+            166.3
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 3.6,
+          "localised": true,
+          "separation_px": 12.4
+        }
+      ]
+    },
+    {
+      "config": "default_512",
+      "res": 512,
+      "fov": 1.5707963267948966,
+      "eye": [
+        0.3,
+        0.0,
+        0.6
+      ],
+      "target": [
+        -0.1,
+        0.0,
+        0.1
+      ],
+      "cubeA_px": 93.0,
+      "cubeB_px": 69.0,
+      "side_a": 9.643650760992955,
+      "side_b": 8.306623862918075,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 97,
+            "side": 9.848857801796104,
+            "mean_rgb": [
+              153.0,
+              16.4,
+              10.3
+            ],
+            "rg": 136.6,
+            "centroid": [
+              221.4,
+              284.2
+            ]
+          },
+          "cubeA_proj_uv": [
+            221.4,
+            279.4
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 4.8,
+          "cubeB": {
+            "pixels": 50,
+            "side": 7.0710678118654755,
+            "mean_rgb": [
+              55.0,
+              139.1,
+              20.2
+            ],
+            "rg": -84.1,
+            "centroid": [
+              299.0,
+              299.4
+            ]
+          },
+          "cubeB_proj_uv": [
+            297.3,
+            293.5
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 6.1,
+          "localised": true,
+          "separation_px": 79.1
+        },
+        {
+          "seed": 1,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 87,
+            "side": 9.327379053088816,
+            "mean_rgb": [
+              163.0,
+              29.0,
+              18.6
+            ],
+            "rg": 134.0,
+            "centroid": [
+              277.8,
+              325.8
+            ]
+          },
+          "cubeA_proj_uv": [
+            276.5,
+            319.2
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 6.7,
+          "cubeB": {
+            "pixels": 83,
+            "side": 9.1104335791443,
+            "mean_rgb": [
+              10.5,
+              150.6,
+              4.4
+            ],
+            "rg": -140.0,
+            "centroid": [
+              287.4,
+              298.4
+            ]
+          },
+          "cubeB_proj_uv": [
+            285.1,
+            292.4
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 6.4,
+          "localised": true,
+          "separation_px": 29.0
+        },
+        {
+          "seed": 2,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 95,
+            "side": 9.746794344808963,
+            "mean_rgb": [
+              171.4,
+              38.6,
+              23.5
+            ],
+            "rg": 132.8,
+            "centroid": [
+              243.1,
+              332.9
+            ]
+          },
+          "cubeA_proj_uv": [
+            241.7,
+            326.4
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 6.7,
+          "cubeB": {
+            "pixels": 74,
+            "side": 8.602325267042627,
+            "mean_rgb": [
+              19.8,
+              146.0,
+              7.2
+            ],
+            "rg": -126.2,
+            "centroid": [
+              268.8,
+              339.8
+            ]
+          },
+          "cubeB_proj_uv": [
+            266.2,
+            332.6
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 7.7,
+          "localised": true,
+          "separation_px": 26.6
+        }
+      ]
+    },
+    {
+      "config": "narrow_256",
+      "res": 256,
+      "fov": 1.0471975511965976,
+      "eye": [
+        0.3,
+        0.0,
+        0.6
+      ],
+      "target": [
+        -0.1,
+        0.0,
+        0.1
+      ],
+      "cubeA_px": 67.66666666666667,
+      "cubeB_px": 59.333333333333336,
+      "side_a": 8.225975119502044,
+      "side_b": 7.702813338860896,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 70,
+            "side": 8.366600265340756,
+            "mean_rgb": [
+              152.4,
+              12.6,
+              8.0
+            ],
+            "rg": 139.8,
+            "centroid": [
+              97.8,
+              152.1
+            ]
+          },
+          "cubeA_proj_uv": [
+            98.0,
+            148.2
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 3.9,
+          "cubeB": {
+            "pixels": 43,
+            "side": 6.557438524302,
+            "mean_rgb": [
+              60.5,
+              139.0,
+              22.0
+            ],
+            "rg": -78.5,
+            "centroid": [
+              165.2,
+              165.6
+            ]
+          },
+          "cubeB_proj_uv": [
+            163.8,
+            160.5
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 5.3,
+          "localised": true,
+          "separation_px": 68.7
+        },
+        {
+          "seed": 1,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 70,
+            "side": 8.366600265340756,
+            "mean_rgb": [
+              164.3,
+              29.7,
+              19.0
+            ],
+            "rg": 134.5,
+            "centroid": [
+              146.4,
+              188.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            145.8,
+            182.7
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 5.6,
+          "cubeB": {
+            "pixels": 70,
+            "side": 8.366600265340756,
+            "mean_rgb": [
+              15.9,
+              150.0,
+              6.2
+            ],
+            "rg": -134.1,
+            "centroid": [
+              154.9,
+              164.8
+            ]
+          },
+          "cubeB_proj_uv": [
+            153.2,
+            159.5
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 5.6,
+          "localised": true,
+          "separation_px": 25.0
+        },
+        {
+          "seed": 2,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 63,
+            "side": 7.937253933193772,
+            "mean_rgb": [
+              171.1,
+              37.0,
+              22.5
+            ],
+            "rg": 134.0,
+            "centroid": [
+              116.5,
+              194.6
+            ]
+          },
+          "cubeA_proj_uv": [
+            115.6,
+            189.0
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 5.7,
+          "cubeB": {
+            "pixels": 65,
+            "side": 8.06225774829855,
+            "mean_rgb": [
+              36.4,
+              142.2,
+              13.5
+            ],
+            "rg": -105.8,
+            "centroid": [
+              139.0,
+              201.2
+            ]
+          },
+          "cubeB_proj_uv": [
+            136.8,
+            194.3
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 7.2,
+          "localised": true,
+          "separation_px": 23.4
+        }
+      ]
+    },
+    {
+      "config": "narrow_512",
+      "res": 512,
+      "fov": 1.0471975511965976,
+      "eye": [
+        0.3,
+        0.0,
+        0.6
+      ],
+      "target": [
+        -0.1,
+        0.0,
+        0.1
+      ],
+      "cubeA_px": 264.3333333333333,
+      "cubeB_px": 205.33333333333334,
+      "side_a": 16.258331197676263,
+      "side_b": 14.329456840136451,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 278,
+            "side": 16.673332000533065,
+            "mean_rgb": [
+              154.2,
+              18.2,
+              11.4
+            ],
+            "rg": 136.1,
+            "centroid": [
+              195.3,
+              305.4
+            ]
+          },
+          "cubeA_proj_uv": [
+            196.1,
+            296.5
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 8.9,
+          "cubeB": {
+            "pixels": 141,
+            "side": 11.874342087037917,
+            "mean_rgb": [
+              44.6,
+              140.7,
+              16.2
+            ],
+            "rg": -96.2,
+            "centroid": [
+              330.6,
+              331.2
+            ]
+          },
+          "cubeB_proj_uv": [
+            327.5,
+            321.0
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 10.7,
+          "localised": true,
+          "separation_px": 137.7
+        },
+        {
+          "seed": 1,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 253,
+            "side": 15.905973720586866,
+            "mean_rgb": [
+              161.8,
+              24.8,
+              15.9
+            ],
+            "rg": 136.9,
+            "centroid": [
+              292.8,
+              376.6
+            ]
+          },
+          "cubeA_proj_uv": [
+            291.6,
+            365.5
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 11.2,
+          "cubeB": {
+            "pixels": 239,
+            "side": 15.459624833740307,
+            "mean_rgb": [
+              11.3,
+              151.5,
+              4.8
+            ],
+            "rg": -140.2,
+            "centroid": [
+              309.8,
+              329.2
+            ]
+          },
+          "cubeB_proj_uv": [
+            306.4,
+            319.0
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 10.7,
+          "localised": true,
+          "separation_px": 50.4
+        },
+        {
+          "seed": 2,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 262,
+            "side": 16.186414056238647,
+            "mean_rgb": [
+              171.6,
+              38.1,
+              23.1
+            ],
+            "rg": 133.4,
+            "centroid": [
+              232.7,
+              389.5
+            ]
+          },
+          "cubeA_proj_uv": [
+            231.2,
+            377.9
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 11.7,
+          "cubeB": {
+            "pixels": 236,
+            "side": 15.362291495737216,
+            "mean_rgb": [
+              33.0,
+              145.6,
+              12.3
+            ],
+            "rg": -112.7,
+            "centroid": [
+              276.9,
+              401.6
+            ]
+          },
+          "cubeB_proj_uv": [
+            273.6,
+            388.7
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 13.3,
+          "localised": true,
+          "separation_px": 45.8
+        }
+      ]
+    },
+    {
+      "config": "close_256",
+      "res": 256,
+      "fov": 1.0471975511965976,
+      "eye": [
+        0.24,
+        0.0,
+        0.45
+      ],
+      "target": [
+        0.0,
+        0.0,
+        0.05
+      ],
+      "cubeA_px": 123.0,
+      "cubeB_px": 87.66666666666667,
+      "side_a": 11.090536506409418,
+      "side_b": 9.363047936792093,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 134,
+            "side": 11.575836902790225,
+            "mean_rgb": [
+              154.0,
+              17.3,
+              10.8
+            ],
+            "rg": 136.8,
+            "centroid": [
+              89.1,
+              110.1
+            ]
+          },
+          "cubeA_proj_uv": [
+            89.2,
+            104.9
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 5.2,
+          "cubeB": {
+            "pixels": 39,
+            "side": 6.244997998398398,
+            "mean_rgb": [
+              84.2,
+              133.2,
+              30.8
+            ],
+            "rg": -49.1,
+            "centroid": [
+              178.6,
+              127.4
+            ]
+          },
+          "cubeB_proj_uv": [
+            174.4,
+            120.1
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 8.4,
+          "localised": true,
+          "separation_px": 91.2
+        },
+        {
+          "seed": 1,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 114,
+            "side": 10.677078252031311,
+            "mean_rgb": [
+              163.8,
+              29.7,
+              19.0
+            ],
+            "rg": 134.1,
+            "centroid": [
+              152.1,
+              155.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            151.2,
+            148.0
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 7.3,
+          "cubeB": {
+            "pixels": 117,
+            "side": 10.816653826391969,
+            "mean_rgb": [
+              16.4,
+              150.7,
+              6.4
+            ],
+            "rg": -134.3,
+            "centroid": [
+              162.7,
+              125.3
+            ]
+          },
+          "cubeB_proj_uv": [
+            160.7,
+            118.9
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 6.7,
+          "localised": true,
+          "separation_px": 31.8
+        },
+        {
+          "seed": 2,
+          "image": [
+            256,
+            256,
+            3
+          ],
+          "cubeA": {
+            "pixels": 121,
+            "side": 11.0,
+            "mean_rgb": [
+              174.2,
+              41.8,
+              25.2
+            ],
+            "rg": 132.3,
+            "centroid": [
+              113.2,
+              163.2
+            ]
+          },
+          "cubeA_proj_uv": [
+            111.8,
+            155.9
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 7.5,
+          "cubeB": {
+            "pixels": 107,
+            "side": 10.344080432788601,
+            "mean_rgb": [
+              38.6,
+              144.1,
+              14.3
+            ],
+            "rg": -105.5,
+            "centroid": [
+              141.3,
+              171.0
+            ]
+          },
+          "cubeB_proj_uv": [
+            139.5,
+            162.7
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 8.5,
+          "localised": true,
+          "separation_px": 29.2
+        }
+      ]
+    },
+    {
+      "config": "close_512",
+      "res": 512,
+      "fov": 1.0471975511965976,
+      "eye": [
+        0.24,
+        0.0,
+        0.45
+      ],
+      "target": [
+        0.0,
+        0.0,
+        0.05
+      ],
+      "cubeA_px": 443.0,
+      "cubeB_px": 306.0,
+      "side_a": 21.047565179849187,
+      "side_b": 17.4928556845359,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 472,
+            "side": 21.72556098240043,
+            "mean_rgb": [
+              151.6,
+              12.0,
+              7.6
+            ],
+            "rg": 139.6,
+            "centroid": [
+              177.8,
+              220.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            178.5,
+            209.8
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 10.6,
+          "cubeB": {
+            "pixels": 135,
+            "side": 11.61895003862225,
+            "mean_rgb": [
+              97.1,
+              130.5,
+              34.9
+            ],
+            "rg": -33.4,
+            "centroid": [
+              356.7,
+              255.8
+            ]
+          },
+          "cubeB_proj_uv": [
+            348.8,
+            240.2
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 17.5,
+          "localised": true,
+          "separation_px": 182.4
+        },
+        {
+          "seed": 1,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 431,
+            "side": 20.760539492026695,
+            "mean_rgb": [
+              161.9,
+              24.3,
+              15.6
+            ],
+            "rg": 137.5,
+            "centroid": [
+              303.5,
+              310.1
+            ]
+          },
+          "cubeA_proj_uv": [
+            302.4,
+            296.1
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 14.1,
+          "cubeB": {
+            "pixels": 413,
+            "side": 20.322401432901575,
+            "mean_rgb": [
+              9.9,
+              152.9,
+              4.4
+            ],
+            "rg": -143.1,
+            "centroid": [
+              325.4,
+              250.2
+            ]
+          },
+          "cubeB_proj_uv": [
+            321.4,
+            237.8
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 13.0,
+          "localised": true,
+          "separation_px": 63.8
+        },
+        {
+          "seed": 2,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 426,
+            "side": 20.639767440550294,
+            "mean_rgb": [
+              171.5,
+              38.0,
+              23.0
+            ],
+            "rg": 133.5,
+            "centroid": [
+              226.3,
+              326.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            223.7,
+            311.7
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 14.8,
+          "cubeB": {
+            "pixels": 370,
+            "side": 19.235384061671343,
+            "mean_rgb": [
+              33.3,
+              145.4,
+              12.4
+            ],
+            "rg": -112.2,
+            "centroid": [
+              283.5,
+              341.7
+            ]
+          },
+          "cubeB_proj_uv": [
+            279.0,
+            325.4
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 16.9,
+          "localised": true,
+          "separation_px": 59.2
+        }
+      ]
+    },
+    {
+      "config": "close_512_narrow",
+      "res": 512,
+      "fov": 0.7853981633974483,
+      "eye": [
+        0.24,
+        0.0,
+        0.45
+      ],
+      "target": [
+        0.0,
+        0.0,
+        0.05
+      ],
+      "cubeA_px": 850.3333333333334,
+      "cubeB_px": 574.0,
+      "side_a": 29.160475533388226,
+      "side_b": 23.958297101421877,
+      "tracks": 3,
+      "n": 3,
+      "rows": [
+        {
+          "seed": 0,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 903,
+            "side": 30.04995840263344,
+            "mean_rgb": [
+              151.7,
+              12.2,
+              7.8
+            ],
+            "rg": 139.5,
+            "centroid": [
+              146.7,
+              206.6
+            ]
+          },
+          "cubeA_proj_uv": [
+            147.9,
+            191.6
+          ],
+          "cubeA_x": -0.0831,
+          "cubeA_centroid_err_px": 15.1,
+          "cubeB": {
+            "pixels": 257,
+            "side": 16.0312195418814,
+            "mean_rgb": [
+              94.4,
+              130.9,
+              34.1
+            ],
+            "rg": -36.6,
+            "centroid": [
+              396.9,
+              255.5
+            ]
+          },
+          "cubeB_proj_uv": [
+            385.4,
+            234.0
+          ],
+          "cubeB_x": -0.0393,
+          "cubeB_centroid_err_px": 24.4,
+          "localised": true,
+          "separation_px": 254.9
+        },
+        {
+          "seed": 1,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 824,
+            "side": 28.705400188814647,
+            "mean_rgb": [
+              161.5,
+              23.3,
+              15.0
+            ],
+            "rg": 138.2,
+            "centroid": [
+              321.6,
+              331.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            320.6,
+            311.9
+          ],
+          "cubeA_x": 0.0321,
+          "cubeA_centroid_err_px": 19.5,
+          "cubeB": {
+            "pixels": 790,
+            "side": 28.106938645110393,
+            "mean_rgb": [
+              11.5,
+              152.7,
+              5.0
+            ],
+            "rg": -141.3,
+            "centroid": [
+              352.5,
+              248.0
+            ]
+          },
+          "cubeB_proj_uv": [
+            347.1,
+            230.6
+          ],
+          "cubeB_x": -0.0426,
+          "cubeB_centroid_err_px": 18.2,
+          "localised": true,
+          "separation_px": 88.8
+        },
+        {
+          "seed": 2,
+          "image": [
+            512,
+            512,
+            3
+          ],
+          "cubeA": {
+            "pixels": 824,
+            "side": 28.705400188814647,
+            "mean_rgb": [
+              172.0,
+              38.8,
+              23.5
+            ],
+            "rg": 133.2,
+            "centroid": [
+              214.4,
+              354.3
+            ]
+          },
+          "cubeA_proj_uv": [
+            210.9,
+            333.7
+          ],
+          "cubeA_x": 0.0504,
+          "cubeA_centroid_err_px": 20.9,
+          "cubeB": {
+            "pixels": 675,
+            "side": 25.98076211353316,
+            "mean_rgb": [
+              31.4,
+              145.9,
+              11.7
+            ],
+            "rg": -114.5,
+            "centroid": [
+              295.3,
+              375.5
+            ]
+          },
+          "cubeB_proj_uv": [
+            288.1,
+            352.7
+          ],
+          "cubeB_x": 0.0657,
+          "cubeB_centroid_err_px": 23.9,
+          "localised": true,
+          "separation_px": 83.6
+        }
+      ]
+    }
+  ]
+}

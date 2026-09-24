@@ -62,6 +62,23 @@ plain ``rgb`` mode exposes no state. That rebuild was unnecessary: the combined 
 is natively supported, and taking the state straight from ManiSkill is one less
 reimplementation of its flattening order to keep correct.
 
+Multiple tasks
+-------------
+``--env-id`` selects the task **and** the matching stock planner solution. Two tasks are
+wired up because Lesson 3.8.4 needs language-distinguishable tasks that share one action
+contract:
+
+| env_id | planner solution | state dim |
+|---|---|---|
+| ``PickCube-v1`` | ``...solutions.pick_cube`` | 42 |
+| ``PushCube-v1`` | ``...solutions.push_cube`` | 35 |
+
+The state **field order differs between tasks** (PickCube has ``is_grasped`` at 18;
+PushCube does not, so its ``tcp_pose`` starts at 18). Hard-coded slice offsets therefore
+silently mis-slice a second task while producing perfectly legal shapes. To prevent that,
+the collector derives the field schema from the environment and writes it into the file as
+``state_fields``, so consumers read the layout instead of assuming it.
+
 Usage (run from the repository root, in the NumPy-1.x environment):
 
     python scripts/generate_expert_demo.py --seeds 0 1 2 3 4 --overwrite
@@ -89,6 +106,41 @@ CONTROL_MODE = "pd_joint_pos"
 ACTION_DIM = 8
 FPS = 20  # measured control rate of this environment, not the declared 50
 DEFAULT_OUT = REPO_ROOT / "datasets" / "pickcube" / "expert_episodes.h5"
+
+# env_id -> stock motion-planning solution module. Add a row when a new task is needed.
+SOLUTIONS = {
+    "PickCube-v1": "mani_skill.examples.motionplanning.panda.solutions.pick_cube",
+    "PushCube-v1": "mani_skill.examples.motionplanning.panda.solutions.push_cube",
+}
+
+
+def state_field_schema(env):
+    """Ordered ``[{'field', 'start', 'stop'}]`` matching the flatten order of obs['state'].
+
+    Derived from the environment rather than hard-coded, because the order is task
+    dependent: PickCube puts ``extra.is_grasped`` right after ``qvel``, PushCube does not.
+    """
+    unwrapped = env.unwrapped
+    obs = dict(
+        agent=unwrapped._get_obs_agent(),
+        extra=unwrapped._get_obs_extra(unwrapped.get_info()),
+    )
+    fields = []
+
+    def walk(node, prefix=""):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{prefix}.{key}" if prefix else key)
+        else:
+            width = int(np.prod(node.shape[1:])) if node.ndim > 1 else 1
+            fields.append((prefix, width))
+
+    walk(obs)
+    schema, start = [], 0
+    for name, width in fields:
+        schema.append({"field": name, "start": start, "stop": start + width})
+        start += width
+    return schema
 
 
 class StepRecorder:
@@ -187,9 +239,11 @@ class StepRecorder:
         return arrays
 
 
-def run_solver(env, seed, obs_mode=OBS_MODE):
-    """Run ManiSkill's own PickCube solution; return its result plus a recorder."""
-    from mani_skill.examples.motionplanning.panda.solutions.pick_cube import solve
+def run_solver(env, seed, obs_mode=OBS_MODE, solution=SOLUTIONS["PickCube-v1"]):
+    """Run the task's own stock solution; return its result plus a recorder."""
+    import importlib
+
+    solve = importlib.import_module(solution).solve
 
     with StepRecorder(env, obs_mode=obs_mode) as recorder:
         result = solve(env, seed=seed, debug=False, vis=False)
@@ -212,6 +266,12 @@ def verify_control_mode(env) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--seeds", type=int, nargs="+", default=[0], help="one episode per seed")
+    parser.add_argument(
+        "--env-id",
+        default=ENV_ID,
+        choices=sorted(SOLUTIONS),
+        help="task to collect; also selects the matching stock planner solution",
+    )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
@@ -236,23 +296,46 @@ def main() -> int:
     import h5py
     import mani_skill.envs  # noqa: F401  registers the environments
 
-    print(f"environment : {ENV_ID}")
+    solution = SOLUTIONS[args.env_id]
+    print(f"environment : {args.env_id}")
+    print(f"solution    : {solution}")
     print(f"obs mode    : {args.obs_mode}")
     print(f"control mode: {CONTROL_MODE}")
     print(f"seeds       : {args.seeds}")
 
     episodes = []
     failed_seeds = []
+    schema = None
     for seed in args.seeds:
-        env = gym.make(ENV_ID, obs_mode=args.obs_mode, control_mode=CONTROL_MODE, num_envs=1)
+        env = gym.make(args.env_id, obs_mode=args.obs_mode,
+                       control_mode=CONTROL_MODE, num_envs=1)
         try:
             verify_control_mode(env)
-            result, recorder = run_solver(env, seed, obs_mode=args.obs_mode)
+            if schema is None:
+                schema = state_field_schema(env)
+                declared = sum(f["stop"] - f["start"] for f in schema)
+                actual = int(np.asarray(env.unwrapped._get_obs_agent()["qpos"]).shape[-1])
+                print(f"state schema: {len(schema)} fields, {declared} dims "
+                      f"({', '.join(f['field'] for f in schema)})")
+            result, recorder = run_solver(env, seed, obs_mode=args.obs_mode,
+                                          solution=solution)
             arrays = recorder.arrays()
+            state_dim = int(arrays["observations"].shape[1])
+            declared = sum(f["stop"] - f["start"] for f in schema)
+            if state_dim != declared:
+                raise RuntimeError(
+                    f"state schema mismatch for {args.env_id}: the environment returns "
+                    f"{state_dim} dims but the derived schema declares {declared}"
+                )
             evaluation = env.unwrapped.evaluate()
-            success = bool(evaluation["success"].item())
-            placed = bool(evaluation["is_obj_placed"].item())
-            static = bool(evaluation["is_robot_static"].item())
+
+            def flag(key):
+                value = evaluation.get(key)
+                return None if value is None else bool(value.item())
+
+            success = flag("success")
+            placed = flag("is_obj_placed")
+            static = flag("is_robot_static")
 
             print(
                 f"seed {seed}: actions={len(arrays['actions'])} "
@@ -270,8 +353,9 @@ def main() -> int:
                 continue
 
             arrays["success"] = success
-            arrays["is_obj_placed"] = placed
-            arrays["is_robot_static"] = static
+            for key, value in (("is_obj_placed", placed), ("is_robot_static", static)):
+                if value is not None:
+                    arrays[key] = value
             arrays["seed"] = seed
             episodes.append(arrays)
         finally:
@@ -288,13 +372,15 @@ def main() -> int:
     with h5py.File(args.out, "w") as handle:
         handle.attrs.update(
             {
-                "env_id": ENV_ID,
+                "env_id": args.env_id,
                 "obs_mode": args.obs_mode,
                 "control_mode": CONTROL_MODE,
                 "robot": "Panda",
-                "task": "PickCube-v1",
+                "task": args.env_id,
                 "data_quality": "expert_planner",
-                "planner": "mani_skill.examples.motionplanning.panda.solutions.pick_cube",
+                "planner": solution,
+                "state_dim": state_dim,
+                "state_fields": json.dumps(schema),
                 "generator": "scripts/generate_expert_demo.py",
                 "control_freq_hz": FPS,
                 "timestamp_source": "derived_not_measured",
@@ -344,9 +430,9 @@ def main() -> int:
                 keys.append("images")
             for key in keys:
                 group.create_dataset(key, data=episode[key], compression="gzip")
-            group.attrs["success"] = episode["success"]
-            group.attrs["is_obj_placed"] = episode["is_obj_placed"]
-            group.attrs["is_robot_static"] = episode["is_robot_static"]
+            for key, value in episode.items():
+                if key in ("success", "is_obj_placed", "is_robot_static"):
+                    group.attrs[key] = value
             group.attrs["seed"] = episode["seed"]
             group.attrs["num_actions"] = len(episode["actions"])
             group.attrs["num_observations"] = len(episode["observations"])

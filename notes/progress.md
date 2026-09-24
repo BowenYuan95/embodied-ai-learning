@@ -828,6 +828,54 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-24 — Second task collected, and the state schema now travels with the data
+
+Lesson 3.8.4 needs language-distinguishable tasks. The plan had been to synthesize instructions
+from `goal_pos`, but `motionplanning/panda/solutions/` already ships `push_cube`, `stack_cube`,
+`pull_cube` and others, so a genuinely different skill is cheap: `PushCube-v1` runs the stock
+planner under the same `pd_joint_pos` 8-d action contract (verified: seeds 0 and 1 both
+`success=True`). Two real tasks beat two synthetic phrasings of one task, because "pick" and
+"push" differ in *skill*: the same scene with a different instruction now demands a different
+action, which is 3.5's criterion applied to language in its strongest form.
+
+`scripts/generate_expert_demo.py` gained `--env-id` with a solution table, and now derives the
+state field schema from the environment and writes it into the file.
+
+**The trap this fixes.** The flatten order is task dependent:
+
+| | `PickCube-v1` (42) | `PushCube-v1` (35) |
+|---|---|---|
+| qpos / qvel | `[0:9]` / `[9:18]` | `[0:9]` / `[9:18]` |
+| `is_grasped` | **`[18:19]`** | — |
+| `tcp_pose` | `[19:26]` | **`[18:25]`** |
+| `goal_pos` | `[26:29]` | **`[25:28]`** |
+| `obj_pose` | `[29:36]` | `[28:35]` |
+
+Applying PickCube's hard-coded offsets to PushCube yields perfectly legal shapes with wrong
+semantics. Measured on `episode_000000`:
+
+| field | ground truth | via the file's schema | via hard-coded `[19:26]` / `[26:29]` |
+|---|---|---|---|
+| `tcp_pose` | `[0.0123, 0.038, 0.1822, -0.0177, 0.9998, 0.0043, 0.008]` | matches | `[0.038, 0.1822, -0.0177, 0.9998, 0.0043, 0.008, 0.1993]` — `goal_pos[0]` leaks in |
+| `goal_pos` | `[0.1993, 0.0536, 0.001]` | matches | `[0.0536, 0.001, -0.0007]` — `obj_pose[0]` leaks in |
+
+Extraction must therefore be schema driven, and the schema has to travel with the data instead of
+being re-derived or re-guessed by every consumer. `state_fields` and `state_dim` are now root
+attributes, and the collector asserts the derived schema's total equals the state width the
+environment actually returns.
+
+**Datasets.** `datasets/pushcube/expert_episodes_rgb.h5` is new: 5/5 successful PushCube episodes
+with `T = 71/72/64/74/66`, a 35-d state, the same `images (T+1, 128, 128, 3) uint8` contract, and
+1.78 MB on disk against 17.3 MB raw. PickCube was re-collected with the schema attribute and is
+still **bit-exact** against `expert_episodes.h5` in all five episodes. Together: 10 episodes, two
+tasks, about 3.7 MB. `PushCube-v1`'s `evaluate()` has no `is_obj_placed` or `is_robot_static`, and
+the collector records them as absent rather than as `False`.
+
+The two tasks share the 3.8.1 contract unchanged: `proprio[25]` (qpos + qvel + tcp_pose) and
+`task_goal[3]` exist in both, and only `is_grasped` differs, which the contract already excluded.
+So the 3.8.1 field contract generalises across tasks without modification — but its **slice
+constants do not**, which is exactly what the schema attribute is for.
+
 ### 2026-09-24 — 3.8.3 observability: three measurements, two of which corrected my own narration
 
 `notebooks/3.8_multimodal_policy.ipynb` grew from 12 to 17 cells (11 markdown, 6 code, all

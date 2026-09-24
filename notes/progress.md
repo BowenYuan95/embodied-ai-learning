@@ -828,6 +828,47 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-24 — Direct-reach expert + controlled layout: the discrete referential frame exists
+
+The step-3 finding was that the motion planner's first actions are **identical for both tasks**,
+so no frame had an uninformative state together with a different required action. The diagnosis
+was that the plan begins with a common approach motion -- a property of the **expert**, not of
+the task. Two changes restore the frame, and both are verified.
+
+**1. A scripted direct-reach expert** (`scripts/direct_reach_solutions.py`). ``a_t = clip(K e, -1,
+1)`` on a proportional Cartesian step, in four phases: approach to a hover pose above the named
+cube, descend, close, lift. Its first action necessarily points at the cube, so it saturates and
+its sign is a large discrete quantity rather than the planner's 0.00044 difference.
+
+It uses ``pd_ee_delta_pos``, action space ``(4,) = [dx, dy, dz, gripper]`` in the world frame --
+measured by commanding one axis for ten steps (``+x`` -> ``[+0.1389, +0.0002, +0.0019]``), not
+assumed. That is a **different action contract from 3.8's** eight-dimensional ``pd_joint_pos``,
+deliberately: joint targets would need inverse kinematics for ``a = K e`` and therefore ``mplib``,
+which is the dependency this removes. It also removes the ``embodied310`` requirement.
+
+**2. A controlled layout** (`scripts/stackcube_layout.py`). The environment samples both cubes
+from a 0.2 x 0.2 box, which does not give a usable left/right axis: over 12 seeds only **4** put
+the cubes on opposite sides of the robot's home x, in the rest the first action's sign was the
+same whichever cube was named, and ``|dy|/|dx|`` was often far above 1 (4.59, 3.78, 111.33).
+The cubes are now placed at ``+/- 0.06 m`` on x with a small y jitter, and ``a_left`` picks which
+cube takes the left slot. The patch is applied inside ``_initialize_episode`` so the observation
+returned by ``reset`` already reflects the forced layout.
+
+**Verified (12/12).** ``proprio`` at ``t = 0`` is bit-identical across layouts while the image
+differs, so Probe A's premise is **exact** rather than statistical; and ``sign(a_0[0])`` equals
+the target's side in **12 of 12** cases with ``a_0[0] = +/-1.0`` and lifts of 0.098-0.102 m.
+
+``robot_init_qpos_noise`` is set to **0**: its default of 0.02 randomises the robot's initial
+joint configuration per seed, which made proprio at ``t = 0`` differ across seeds
+(``max|d| = 6.63e-02``) and broke Probe A's premise. With 0, six seeds gave **identical** ``t=0``
+proprio while the layout still varied (L,R,L,L,R,L).
+
+**Contract changes this implies, to be applied before re-collection:** ``control_mode =
+"pd_ee_delta_pos"`` with a 4-dimensional world-frame delta action, ``robot_init_qpos_noise = 0``,
+``expert_type = "scripted_direct_reach"``, ``planner = "none"``. The existing
+``expert_planner`` label must **not** be reused, and the dataset is a new artefact rather than a
+replacement.
+
 ### 2026-09-24 — StackCube grounding, step 3: the clean frame is t=1, and it is structurally too small
 
 Collection produced 4 episodes (2 layout pairs) with both pairs passing the bit-equality check on

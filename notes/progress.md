@@ -828,6 +828,52 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-24 — StackCube grounding, step 3: the clean frame is t=1, and it is structurally too small
+
+Collection produced 4 episodes (2 layout pairs) with both pairs passing the bit-equality check on
+their `t=0` state and image. Step 3 then measured the leakage and found a design-level problem.
+
+**Correction to the design as stated.** I had claimed `t=0` was the clean frame -- "state
+identical, required action different". The data says otherwise: at `t=0` the expert's action is
+**identical in all eight channels** (`|d| = 0.00000`), because the planner's first step moves
+toward a target-independent pre-grasp pose. A language-blind policy therefore scores 100% at
+`t = 0`, and the 50% bound was vacuous there.
+
+**The clean frame is `t = 1`.** Measured per timestep:
+
+| t | state divergence | action divergence |
+|---|---|---|
+| 0 | 0.00000 | **0.00000** |
+| **1** | **0.00000** | **0.00118** |
+| 2 | 0.00709 | 0.00473 |
+| 13 | 0.34987 | 0.19025 |
+
+So the window is exactly one frame: action depends on the target, state does not. The paired
+effect there -- same seed, red against green, which cancels the layout term entirely -- is
+**0.00044**, against **0.13986** over the whole episode and **0.17952** for the same task
+across seeds. At the only frame where the instruction is necessary its effect is ~320x smaller
+than over the episode.
+
+**This is structural, not a data defect.** State divergence is the integral of past action
+divergence, so the two necessarily grow together. A frame with identical state and a *large*
+required action difference needs a **discrete** action, which is precisely why 3.8.4.5's binary
+gripper -- identical state at `t=0`, actions differing by exactly 2.0 -- was clean, and why a
+referential choice between two continuous reaches cannot be. Referential grounding has no
+analogue of that discrete frame.
+
+**Consequences.** The full-policy 2x2 is doubly blocked: the state reveals the target from
+`t = 2`, and the frame where it does not has a 320x smaller effect, so a BC model optimising MSE
+would fit the layout (visible, 50x larger) and treat the instruction as noise. What survives is
+
+1. the **restricted `t=1` probe** -- image plus language only, no proprio -- where a
+   language-blind model must emit identical actions for the pair because its input is identical,
+   so it can match at most one and is bounded by 50%. This is the 3.8.4.6 E4 structure and it is
+   runnable on this data; and
+2. the **aggregate paired effect**, which is the right statistic for the main experiment and has
+   no error bar at n = 2 pairs.
+
+Both need more seeds: 4a's collector works, so collecting ~10 is cheap.
+
 ### 2026-09-24 — StackCube grounding, step 2: the contract variant
 
 `scripts/stackcube_contract.py` fixes the data and observation contract for the referential-

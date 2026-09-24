@@ -183,6 +183,79 @@ The current PickCube state vector has 42 dimensions:
 Object pose, goal information, relative task-state features, and grasp state
 must be reviewed before being classified as deployable observations.
 
+## Observation, Condition, and Estimated State
+
+Three different things arrive at a policy, and they differ in **epistemic status**, not in which
+sensor produced them. Conflating them is how a policy ends up reading a value it cannot have on a
+real robot, or ignoring one it must use.
+
+| Layer | What it is | In `PickCube` | Where it comes from |
+|---|---|---|---|
+| **observation** | measured directly | camera pixels; `qpos` / `qvel` / `tcp_pose` | camera, joint encoders, forward kinematics |
+| **estimated state** | *inferred* from observations, possibly over time | `obj_pose`, `is_grasped` | vision; proprioception / contact / touch plus **history** |
+| **task condition** | **given**, never inferred | `goal_pos` | task specification or instruction |
+
+Two consequences worth carrying:
+
+- **Almost nothing a policy consumes is a raw observation.** Pixels and encoder readings are; the
+  cube's pose and the grasp predicate are estimates. Making that explicit, instead of hiding it in
+  an input tensor, is what a task-state layer is for.
+- **A condition has no evidence source, and that emptiness is definitional.** It does not mean "the
+  goal is unknown"; it means the goal is not something to be inferred from sensors. Filling the slot
+  with `vision` confuses *desired* state with *observed* state. Two different tasks can present the
+  same image ("put the cube on the left" versus "...on the right"), so the image cannot determine
+  the goal (`I_t ⇏ g`), and no loss reveals the mistake.
+
+### A condition correlated with the scene invites a shortcut
+
+`PickCube` samples the goal **from the cube's spawn region** (`pick_cube.py:123-128`:
+`goal_xyz[:, :2] = rand * cube_spawn_half_size * 2 + cube_spawn_center`). Measured over the five
+expert episodes, `abs(goal_xy - cube_initial_xy)` is `0.0123` to `0.1355 m` (mean `0.0737`) and
+`corr(cube_init_x, goal_x) = +0.68` (`n = 5`, indicative only).
+
+The generator therefore manufactures a statistical link between the scene and the goal. A model can
+learn "which goal does this image usually go with in the training data" instead of "what does the
+task require", score a good training loss, and fail exactly on the counterfactual (same scene, a
+different goal). **A low loss is not evidence that a task condition was modelled correctly** — the
+same point as privileged information: when the information contract is wrong, MSE will not find it
+for you.
+
+### A threshold predicate, and why zero error can be vacuous
+
+The simulator's `is_grasped` is a derived predicate with a hard threshold, not a sensor reading. On
+the five expert episodes `qpos[7]` (a finger joint) is `[0.01829, 0.01832]` while grasping and
+`[0.02040, 0.04000]` otherwise, so a **single threshold separates the classes with 0 errors in 365
+frames**. That looks like a perfect proprioceptive proxy, and it is not evidence of one:
+
+> A method that scores 0 errors on a dataset that **cannot exhibit the failure mode** is not thereby
+> validated.
+
+Nothing in these five scripted episodes ever blocks the fingers at cube width; the fingers close on
+the cube (`0.01830 ± 3e-5`) or on nothing (`>= 0.02040`). The proxy's actual vulnerability — a table
+edge or another object stopping the fingers at roughly cube width — never occurs, so the data cannot
+falsify it. Same reasoning as above, one level down: **low loss does not prove a condition was
+modelled, and zero error does not prove a proxy is sound.**
+
+The threshold also explains the one-frame `is_grasped` flip recorded in the RGB-collection entry:
+the boolean changes within a single control step (`0.02051 -> 0.01831`), so any tiny numerical
+difference flips it. A predicate defined by a threshold on a continuous quantity sitting exactly at
+that threshold is unstable by construction. A temporal-consistency test — does `T_TCP^-1 T_cube`
+stay roughly constant over a window — does not rely on a single-point threshold and is the more
+robust definition.
+
+### Language is a condition channel, and one instruction carries zero information
+
+An instruction belongs to the **condition** layer, alongside `goal_pos`. The test for whether a
+policy actually needs language is the same criterion used for partial observability: **if changing
+the instruction changes the required action on the same observation, language is necessary;
+otherwise it is decoration the model will learn to ignore.**
+
+Measured on the current data, the language channel is empty: only one instruction string exists in
+the repository (LeRobot `meta/tasks.parquet`: `pick up the cube`), every episode shares it, and the
+HDF5 files carry no per-episode instruction field at all. With a constant instruction the channel's
+variance is zero, so its contribution is not merely small — it is **unmeasurable**, and any ablation
+returns "no change" for reasons that say nothing about language.
+
 ## Action Specification
 
 An action tensor is not fully described by its shape. Its specification should

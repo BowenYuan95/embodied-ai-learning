@@ -828,6 +828,72 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-24 — 3.8.3 observability: three measurements, two of which corrected my own narration
+
+`notebooks/3.8_multimodal_policy.ipynb` grew from 12 to 17 cells (11 markdown, 6 code, all
+executed, zero errors) with a 3.8.3 section that turns the deployability table from a
+judgement into measurements. The criterion is 3.5's: partial observability means two hidden
+states producing the same observation while requiring different actions.
+
+**M1/M2 — cube pixel footprint and visibility, over all 365 frames.** Depth is unprojected
+to world-frame surface points, and a pixel counts as "cube" when its unprojected point falls
+inside the cube's 4 cm AABB. That uses only well-defined quantities (depth, camera
+intrinsics/extrinsics, the cube's true pose) and **no colour threshold** — the colour route
+had already failed once, with a red-brown table capturing 65% of pixels.
+
+| quantity | value |
+|---|---|
+| cube pixels over 365 frames | min 4, median 9, max 21 |
+| as a fraction of a 128x128 frame | 0.024% .. 0.128% |
+| frames with the cube invisible | **0 / 365**, none below 4 px |
+
+Two conclusions. `obj_pose` is vision-estimable but the raw material is tiny. And the
+hypothesis that the gripper occludes the cube during the approach — which would have made
+`obj_pose` a memory problem and tied 3.8.3 back to 3.6 — is **refuted** on this data: the
+cube is visible in every frame. Memory may still be needed for other reasons (velocity,
+task progress), but not for object permanence here.
+
+**M3 — does the image carry the goal?** Threshold fixed before looking at results
+(`mean |dpixel| < 10`), as 3.7's self-check question 6 requires.
+
+| quantity | value |
+|---|---|
+| sampled frame pairs, cross-episode at the same t | 100 |
+| mean abs pixel difference | 1.53 .. 7.71 (all 100 below the threshold) |
+| goal distance in those pairs | 0.0571 .. 0.2927 m = **2.3x .. 11.7x** the 0.025 m success tolerance |
+| corr(mean abs pixel diff, goal distance) | **-0.295** |
+| image change across episodes at fixed t | median 5.89 |
+| image change within one episode over 25 steps | median 5.96 |
+| ratio | **1.0x** |
+
+The goal is bit-exactly fixed within every episode (asserted). So pixel variation shows no
+positive relation to the goal, and cross-episode variation is no larger than ordinary motion
+variation. This is **corroboration, not proof**: the proof that the goal is invisible is the
+source (`goal_site` is in `_hidden_objects`); M3 reaches the same conclusion independently
+from the data, but correlation cannot exclude a weak hidden signal.
+
+**Two corrections to my own narration, both caught by running the code.**
+
+1. The first printed interpretation claimed the goal signal is "buried by an order of
+   magnitude" under motion. The measured ratio is **1.0x**, not 10x. The conclusion survives
+   but the reason changes: not "the signal is drowned" but "pixel change is unrelated to the
+   goal".
+2. The first pinhole sanity check used the norm of the cube's world position (0.057 m) as
+   the distance and printed **44.7 px**, contradicting the 3x3 footprint that was just
+   measured. The correct quantity is the camera-frame z along the optical axis (0.626 m),
+   giving **4.1 px**, which matches. Both the mistake and the fix are recorded in the
+   notebook rather than quietly removed.
+
+One number for 3.8.5: 25 steps of robot motion change the average pixel by only **5.96/255**.
+The scene is visually quiet and the informative pixels are a small fraction, so any "image
+helps" result in 3.8.6 would hold on a near-constant visual distribution.
+
+**3.8.3 status: the deliverable is met.** The four-way classification now carries a measured
+column: proprio is not vision-dependent; `goal_pos` has no image signal and must come from
+`task_goal` or the instruction; `obj_pose` is always visible but only 4-21 px;
+`is_grasped` remains unmeasured because no gripper-width or tactile channel exists in this
+data; `tcp_to_obj` and `obj_to_goal` are derived and inherit the errors above.
+
 ### 2026-09-24 — RGB expert collection, and an action-replay conflict with 2.9
 
 Lesson 3.8 needs `(image, language, state) -> action chunk`, and the repository had no

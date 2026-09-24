@@ -205,6 +205,11 @@ hang, and a hang costs a round trip, an abort, and often unsaved work.
   own cell, so an error or an interrupt costs one unit rather than the whole notebook.
 - **Never bundle build + execute + long compute into a single call.** Building an artifact
   and then running it for minutes in the same command hides which step failed.
+- **A syntax check and `--help` do not execute the code**, so neither can catch an undefined
+  name. A patch that splices a function body can delete module constants sitting *outside* the
+  spliced region, and the file still compiles and still prints help. After editing a script,
+  run `scripts/check_undefined_names.py <file>`, or import the module and reference the names
+  the CLI actually uses. `pyflakes` and `ruff` are not installed in this project.
 
 ### Make progress visible
 
@@ -221,6 +226,10 @@ hang, and a hang costs a round trip, an abort, and often unsaved work.
 - **Persist partial results.** Write artifacts (metrics, checkpoints, logs) as each step
   completes, not only at the end. A run that writes once at the very end loses everything
   when it is interrupted.
+- **Do not re-run a tool that writes to a committed path while exploring.** Running the
+  StackCube verifier without `--out` overwrote the learner's `device = cuda`, 9/9 report with a
+  local `device = cpu`, 0/9 one. Send exploratory runs to a scratch path, and restore
+  overwritten evidence from git immediately.
 - **Do not hide a progressive log behind a buffering filter.** `cmd 2>&1 | grep -v noise`
   block-buffers, so the terminal shows nothing until the command exits — the same "looks
   hung" failure in a new disguise. Use `grep --line-buffered` (or `stdbuf -oL`), or let the

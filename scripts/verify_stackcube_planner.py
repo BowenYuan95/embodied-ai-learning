@@ -171,6 +171,21 @@ def color_check(seeds):
     return dict(rows=rows)
 
 
+CONFIGS = (("cubeA", False), ("cubeB", False), ("cubeB", True))
+SENTINEL = "RESULT_JSON "
+
+
+def run_single(seed, pick, truncate):
+    """Run one configuration in THIS process and emit a machine-readable line.
+
+    The parent spawns this via ``--single`` so that a segfault identifies which configuration
+    crashed instead of destroying the whole sweep.
+    """
+    r = run_one(seed, pick, truncate)
+    print(SENTINEL + json.dumps(r), flush=True)
+    return 0 if r.get("ok") else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])

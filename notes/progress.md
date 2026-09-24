@@ -828,6 +828,38 @@ episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
 
+### 2026-09-24 — StackCube grounding experiment, step 1: the planner works, but the camera is too coarse
+
+**The planner runs only under `embodied310`.** 9/9 configurations segfault (exit -11) in
+`embodied` and 9/9 succeed in `embodied310`. The cause is already in `README.md`: `mplib==0.1.1`
+is compiled against the NumPy 1.x C API and `embodied` carries NumPy 2.2.6. `README.md` is item
+4 of the Sources of Truth in `AGENTS.md` and was not read before designing the driver, which
+cost two failed runs. Two further defects in that driver came from the same habit of
+reconstructing an invocation instead of reusing the collector's: passing `render_mode=None`
+(the collector never does) and reading actor poses before the first `reset()`.
+
+**Step 1 outcome: the planner is viable.** With the fixed driver all three configurations --
+red full stack, green full stack, green truncated at lift -- succeed on seeds 0, 1, 2 under
+`embodied310`. `scripts/stackcube_solutions.py` parameterises the stock 86-line solution on
+which cube is picked, which is all the mirror needed.
+
+**Leak #4 (fixed side) passes.** Over 40 resets, cubeA (red) is left of cubeB (green) in
+**19/40 = 47.50%**. No colour sits on a fixed side, so a language-blind policy cannot score by
+always choosing one side.
+
+**Leak #3 (colour separability) passes on information but fails on resolution.** Through lesson
+3.8.3's cube-to-pixel projection, per-cube mean `R-G` is **+120** for the red cube, **-120** for
+the green cube and **+66** for the table behind them, so a window of `|R-G| > 90` separates all
+three while a plain `R > G` test does not, because the table is also red-dominant. The problem
+is size: each cube occupies only **5-10 px** of the 128x128 frame (0.03-0.06%). The 3.8.5 CNN
+downsamples by 16x, so an 8-pixel object has vanished by its last feature map. **A model would
+very likely fail here for a reason unrelated to grounding**, which would make the 2x2
+interaction uninterpretable.
+
+**Consequence: raise the camera resolution before collecting**, and treat the image shape as an
+explicit contract variant rather than inheriting `[128,128,3]`. A closer camera or larger cubes
+are alternatives, and both are also contract changes.
+
 ### 2026-09-24 — 3.8g: the seed sweep that overturned one ranking and established another
 
 `notebooks/3.8g_seed_sweep.ipynb` (23 cells, 14 code) trains E1b/E2/E3b/E3c at init seeds 0, 1, 2
@@ -863,8 +895,6 @@ against a fixed `SPLIT_SEED = 42`. Ran on the GPU: 14/14 code cells, 0 errors.
 
 3.8f's reading cells now carry `<补正 3.8g>` notes in place. Durable conclusions recorded in
 `notes/concepts.md` under "Ablation Discipline".
-
-## Session Log
 
 ### 2026-09-24 — 3.8.5 / 3.8.6: the fusion model, and an ablation whose capacity control changed the answer
 

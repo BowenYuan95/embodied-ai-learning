@@ -644,6 +644,105 @@ Two conclusions that shape later reading:
   larger, and the failure compounds. This is the single concept that links BC,
   ACT, Diffusion Policy, VLA, and recovery.
 
+## Action Chunking
+
+Chunking changes **what one training sample is**: from `(o_t, a_t)` to
+`(o_t, [a_t ... a_{t+H-1}])`, i.e. from `action_dim` targets to `H * action_dim` targets,
+with the input unchanged. Its claim is often stated too strongly. The precise version:
+
+> Chunking replaces high-frequency closed loop with low-frequency closed loop plus a
+> **local open-loop commitment**. It reduces the number of re-observations, not the
+> per-decision error, and it does not by itself cure compounding error.
+
+### `L`, `H`, and `K` live in different places
+
+| Symbol | Decides | Belongs to | Consequence |
+|---|---|---|---|
+| `L` | how many observation frames are read | training (input shape) | orthogonal to chunking; it is the history decision of "History Representation for Policies" |
+| `H` | how long the target is | training (output shape) | fixes the sample count and the parameter count; changing it requires **retraining** |
+| `K` | how many predicted steps are executed before re-observing | execution (policy hyper-parameter) | appears only in the rollout, never in the dataset |
+
+So the dataset-construction code contains no `K` at all, training advances the start index
+by 1 while execution advances it by `K`, and `H - K` is the overlap between consecutive
+predictions (the raw material for temporal ensembling; `K = H` leaves none). This is why
+one trained model can be swept over `K` but not over `H`.
+
+### Sample count and what the tail costs
+
+A chunk sample needs `t + H <= T`, so an episode of `T` actions yields `T - H + 1` starts
+(the `+1` is the usual closed-interval count, the same rule that makes the state array
+`T + 1` long). Across `N` episodes:
+
+```text
+samples = sum(T_i) - N * (H - 1)
+```
+
+Each episode loses exactly `H - 1` starts **regardless of its length**, and those lost
+starts are the *endings* of each episode. `H` is additionally bounded by the shortest
+episode: at `H = T_min + 1` that episode contributes zero samples, and beyond it the count
+goes negative — worth an explicit assertion.
+
+The constraint is a consequence of **dropping** the tail, not of `H` itself: padding
+recovers every start but introduces fake targets, which then require a masked loss.
+
+### Chunk boundaries must be episode-local
+
+Concatenating all episodes and then slicing produces an array of the same rank and a
+plausible shape, but its final samples **mix two trajectories**. On this repository's five
+episodes the naive version yields 353 samples against 325 correct, of which 28 straddle a
+boundary — and `crossing = (N - 1) * (H - 1)`. A shape check cannot see this; only an
+episode-local loop with an assertion can.
+
+### Multi-step targets change the parameter count
+
+The output layer is `hidden x (H * action_dim)`, so `H = 8` at `hidden = 128` carries
+30,272 parameters against 23,048 for `H = 1` — **+31.3%**. A chunked model that beats a
+single-step model may therefore be winning on capacity. Any such comparison needs a
+**parameter-matched** control (here `hidden = 150` gives 30,308).
+
+### The only fair offline comparison is at `h = 0`
+
+A chunked model's headline validation MSE averages over `H * action_dim` elements, of which
+`h = 1 ... H-1` are strictly harder; a single-step model averages over `action_dim`. Those
+totals are **not comparable**. The fair quantity is `h = 0`, where both models predict the
+same next action from the same state on the same samples.
+
+### `baseline_h` is not constant, so each horizon needs its own baseline
+
+The "predict the training-mean action" baseline rises with `h` (measured 0.5576 to 0.8386
+over `h = 0 ... 7` in normalised action space). Two causes, which must be separated:
+
+- further actions are genuinely harder;
+- the **sampling window moves**: `h = 0` covers starts `t in [0, T-H]`, while `h = H-1`
+  covers `t in [H-1, T-1]`, so later horizons include more of the episode tail, where
+  actions deviate further from the mean.
+
+So compare `mse_h` against its own `baseline_h`, not against a single pooled number, and
+never read "`mse_h` rises with `h`" as evidence about difficulty alone. The useful summary is
+the **useful horizon**: the largest `h` for which `mse_h < baseline_h`.
+
+### `F.mse_loss` broadcasts
+
+`ChunkMLP` returns `[B, 1, 8]` even when `horizon = 1`. If the single-step loader supplies
+`[B, 8]`, `F.mse_loss` broadcasts them into `[B, B, 8]` and returns a plausible-looking
+loss with wrong gradients — the symptom is a train loss that refuses to fall. Keep the
+horizon dimension and assert `pred.shape == yb.shape` before every loss.
+
+This is the same failure class as the episode-boundary bug and as the post-action
+observation defect in Lesson 2: **compatible-looking shapes mean nothing complains.** A
+`T x T` score matrix, a `[B, B, 8]` loss, and a `(74, 8)` action array can all be wrong
+while every shape check passes.
+
+### Measured outcome on this repository's data
+
+With five expert episodes (`T = 74/74/50/86/76`), `H = 8`, and one held-out episode: the
+useful horizon is **0**, chunked `h = 0` error (0.5718) equals the single-step error
+(0.5752), and only the parameter-matched larger single-step model (0.4279) beats the
+mean-action baseline (0.5576). Closed loop is **0/5 at every K**. `K` does move the
+structural quantities exactly as expected (replans 200 -> 25, open-loop 0.05 -> 0.40 s)
+and reduces action clipping (0.947 -> 0.121) without improving success. The binding
+constraint on this data is **coverage**, not the chunking decision.
+
 ## VLA Anatomy
 
 The pipeline to be able to explain without hand-waving:

@@ -1,6 +1,6 @@
 # Embodied AI Learning Progress
 
-Last updated: 2026-09-23
+Last updated: 2026-09-24
 
 This is the single source of truth for current project status. Use Git history
 instead of creating date-suffixed progress files.
@@ -807,7 +807,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.4 distribution shift | held-out states reach `\|z\| = 13.21`; raw actions out of bounds on only `0.2%` of held-out states but `99.5%` of closed-loop steps are clipped |
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
-| 3.7 action chunking | not started; connects to ACT, Diffusion Policy, and `π0` action chunks |
+| 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 24 cells (15 md / 9 code, all executed, 0 errors). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
 | 3.8 multimodal policy transition | not started |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
@@ -818,6 +818,87 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — Notebook 3.7 (Action Chunking) built out and executed to a negative result
+
+`notebooks/3.7_Action_Chunk.ipynb` was a 12-cell draft (4 markdown, 8 code, all executed)
+with two competing sample-construction paths. It is now 24 cells (15 markdown, 9 code),
+all executed with zero error outputs, markdown interleaved with code, and the measured
+results written back into the narrative. The dtype/renaming/scheduling of the notebook
+itself is `[verified]`: `nbformat.validate` passes and every code cell carries an
+`execution_count`.
+
+**Four defects in the draft, each verified before it was fixed**
+
+1. Two contradictory definitions of "a training sample" coexisted: one cell built a
+   `Dataset` with `H=4` plus zero-padding and a mask, another used `H=8` with the tail
+   dropped. Both were live, `H` was assigned three times, the mask never reached the
+   loss, and the padded `train_loader` was dead code.
+2. The split did not match Lesson 2. `default_rng(42).permutation(5)` is `[4 2 3 1 0]`;
+   the draft took `order[-1]` (episode 0) as held-out, whereas Lesson 2 recorded
+   episode 4, i.e. `order[0]`. One index differs; the entire held-out trajectory does.
+3. `max_steps=200` never took effect: the draft's own recorded output reads
+   `{'seed': 100, 'K': 1, 'success': False, 'steps': 50, ...}`. The gymnasium default
+   `TimeLimitWrapper` caps at 50, the confound Lesson 2 had already ruled out.
+4. The single-step baseline was invalid. `ChunkMLP` returns `[B, 1, 8]` even when
+   `horizon=1`, while the single-step loader supplied `[B, 8]`; `F.mse_loss` broadcasts
+   those into a `[B, B, 8]` tensor, so B1/B2 were trained on a garbage loss and showed
+   the tell-tale flat train loss. Fixed by keeping the horizon dimension (`Y[:, 0:1, :]`)
+   and asserting `pred.shape == yb.shape` before every loss.
+
+**Decisions taken by the learner before the rewrite**
+
+Drop-tail sample construction (single `H=8`, no padding branch); acceptance = concepts +
+correct samples + per-horizon diagnostic + controlled single-step baseline, with closed
+loop *reported but not gating*; sweep `K in {1,2,4,8}`; adopt Lesson 2's split; write the
+plan before touching the notebook.
+
+**What the executed notebook measures** (`[verified]`, all recorded as cell outputs)
+
+| Quantity | Result |
+|---|---|
+| chunk samples, `H=8`, drop-tail | `325` (from 360 pairs); per episode `67/67/43/79/69` |
+| naive concat-then-slice counter-example | `353` samples, of which `28` span two episodes; both are valid arrays of the same rank |
+| train / val split | episodes 0-3 / episode 4; `(256, 42)` train chunks, `(69, 8, 8)` val chunks |
+| parameters | `H=1,hidden=128` 23,048; `H=8,hidden=128` 30,272 (**+31.3%**); `H=1,hidden=150` 30,308 (matched) |
+| `baseline_h` (val, normalised space) | 0.5576 (h=0) rising monotonically to 0.8386 (h=7) |
+| mean-action baseline @ h=0 | **0.557645** |
+| B1 single-step hidden=128 | 0.575204 @ h=0 — **worse than the baseline** |
+| B2 single-step hidden=150 (matched) | **0.427904** @ h=0 — the only model better than the baseline |
+| chunked `H=8` | 0.571828 @ h=0 (**≈ B1**), 0.853913 overall |
+| per-horizon | worse than its own baseline at **every** h; **useful horizon = 0** |
+| identity `mean(mse_per_horizon) == best val loss` | asserted true (0.853913) |
+| K sweep, seeds 100-104 | success **0/5 at every K**; steps 200 everywhere; replans 200/100/50/25; clipped 0.947 / 0.370 / 0.200 / 0.121 |
+
+**Reading.** The offline half is a clean negative result: the multi-step objective neither
+helped nor hurt the one-step prediction (chunked 0.5718 vs B1 0.5752), useful horizon is 0,
+and the only model above the mean-action baseline is the one with more parameters —
+which is capacity, not chunking, and rests on 69 samples from a single trajectory. The
+closed loop is 0/5 for every `K`, so with 5 seeds the one-sided 95% upper bound on success
+is still about 45%: this **cannot** separate "chunking does not help" from "five episodes
+are not enough for any policy". What the lesson does establish is the **measurement
+apparatus** — correct episode-local samples, a controlled and parameter-matched comparison,
+an asserted identity, and an explicit step cap.
+
+The one unexpected but real observation: **clipping falls monotonically as `K` grows**
+(0.947 -> 0.121) while success stays 0. A plausible explanation — a re-planning policy
+re-samples its own drifted distribution and emits extreme actions, while larger `K`
+executes the chunk's later, closer-to-mean predictions — is recorded in the notebook as a
+**hypothesis**, not a finding. Distinguishing it needs the executed-action distribution
+per `K`, which this lesson does not record.
+
+**Not established:** nothing about `H` other than `H=8` (sweeping `H` needs retraining);
+nothing about temporal ensembling (not implemented); nothing about generalisation (one
+held-out trajectory, 69 chunk samples). No gate item moved.
+
+`notes/concepts.md` gained `## Action Chunking`, recording the `L/H/K` split, the sample
+count `sum(T_i) - N(H-1)`, why the comparison must happen at `h=0`, why `baseline_h` is not
+constant, and the `F.mse_loss` broadcast trap.
+
+Backups of the pre-change and pre-execution notebook were kept outside the repository
+(`/tmp/3.7_before_教案.ipynb`, `/tmp/3.7_unexecuted.ipynb`). Two markdown-only safety rules
+from the 3.6 session were honoured: the file's `mtime` was re-read immediately before every
+write, and no whole-file rewrite happened without that check.
 
 ### 2026-09-23 — Notebook 3.6 (history representation) organized; one cell overwritten and restored by hand
 

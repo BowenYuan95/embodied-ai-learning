@@ -817,7 +817,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
 | 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
-| 3.8 multimodal policy transition | **In progress** — data/contract/module layer done as four notebooks (`3.8a_contract` 14 cells, `3.8b_observability` 10, `3.8c_language` 21, `3.8d_conditioning_tests` 11) over the single-source `scripts/mml_contract.py`, file `3.8_multimodal_policy.ipynb` now an index. Model layer: `scripts/mml_policy.py` plus `3.8e_fusion_model.ipynb` (18 cells, 3.8.5: Encoder + concat Fusion + action head, 528,800 params, action side still 3.7's contract) and `3.8f_ablation.ipynb` (21 cells, 3.8.6: six arms, one per cell). Headline results: capacity-matched `Delta_vision = +0.014489` (image carries object position, which `proprio` excludes); `E3a` vs `E2` `-0.005833` as the wiring control predicted; `E3c` vs `E3b` `-0.002892`, indistinguishable; T2 at float32 rounding on every language arm; and the `t=0` probe scoring 50.0% without language against the proven 50% bound and 100.0% with it. Remaining: 3.8.7 VLA interface, a multi-seed sweep to put error bars on the arm ranking, and closed-loop evaluation |
+| 3.8 multimodal policy transition | **In progress** — data/contract/module layer done as four notebooks (`3.8a_contract` 14 cells, `3.8b_observability` 10, `3.8c_language` 21, `3.8d_conditioning_tests` 11) over the single-source `scripts/mml_contract.py`, file `3.8_multimodal_policy.ipynb` now an index. Model layer: `scripts/mml_policy.py` plus `3.8e_fusion_model.ipynb` (18 cells, 3.8.5: Encoder + concat Fusion + action head, 528,800 params, action side still 3.7's contract) and `3.8f_ablation.ipynb` (21 cells, 3.8.6: six arms, one per cell). Headline results: T2 at float32 rounding on every language arm; the `t=0` probe scoring 50.0% without language against the proven 50% bound and 100.0% with it; and from the 3.8g 3-seed sweep, `Delta_vision` **not established** (mean `+0.002975`, sign flips across seeds) while `E3c`/`E3b` recovered the L0-ceilings-L1 direction, and the one effect that clears the seed noise is capacity-matched `I+p+goal` against `I+p+language` at **2.27x** (a learnability gap at equal information). Remaining: 3.8.7 VLA interface, and closed-loop evaluation |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
@@ -825,6 +825,44 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 frame-level leakage cell still points at the random fixture, where the measured
 ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expert
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
+
+## Session Log
+
+### 2026-09-24 — 3.8g: the seed sweep that overturned one ranking and established another
+
+`notebooks/3.8g_seed_sweep.ipynb` (23 cells, 14 code) trains E1b/E2/E3b/E3c at init seeds 0, 1, 2
+against a fixed `SPLIT_SEED = 42`. Ran on the GPU: 14/14 code cells, 0 errors.
+
+| arm | inputs | mean | min | max | range | grip |
+|---|---|---|---|---|---|---|
+| E1b | `p+g`, hidden 1139 | 0.085504 | 0.068587 | 0.102373 | **0.033787** | 99.0% |
+| E2 | `I+p+g` | 0.082529 | 0.074864 | 0.088348 | 0.013484 | 97.4% |
+| E3b | `I+p+task-ID` | 0.041883 | 0.036425 | 0.045598 | 0.009173 | 99.5% |
+| E3c | `I+p+l` | 0.036432 | 0.031756 | 0.043474 | 0.011718 | 99.2% |
+
+**Both pre-registered pairs came out OVERLAP, so the 3.8.6 arm ranking does not stand.**
+
+1. **`Delta_vision` is not established, and its sign flips.** Seed 0 reproduces the 3.8.6 number
+   (`+0.014025` against `+0.014186` on GPU), but seeds 1 and 2 give `-0.006277` and `+0.001176`;
+   the mean is `+0.002975`. The single-seed `+0.014` was one lucky draw, so the claim that the
+   image carries object position (because `proprio` omits `obj_pose`) is **not supported**.
+2. **`Delta_E3` recovered the predicted direction.** 3.8.6's single seed gave `-0.0029` / `-0.0013`
+   (C better than B, against 3.8.4.4's ceiling prediction); all three seeds are positive
+   (`[+0.0024, +0.0021, +0.0119]`, C worse than B), which is the L0-ceilings-L1 direction. The
+   magnitude is still not established.
+3. **What the sweep did establish is a different, larger effect.** E2 and E3c are capacity-matched
+   (fusion dim 416 both, parameters within 0.1%), share the image and proprioception, and differ
+   only in the condition channel. Their seed ranges are **disjoint** and the error differs by
+   **2.27x** (`0.0825` against `0.0364`). Since `H(l | g) = 0` the two carry the same information,
+   so this is a **learnability** difference rather than an information one: thresholding a
+   continuous 3-dim goal into a task is harder than reading a discrete index. It generalises
+   3.8.4.4 one step -- representation choice is not only about information content.
+4. **The capacity-matched control is the noisiest arm.** E1b's range (`0.0338`) is 2.5x E2's.
+   Matching capacity made the comparison possible and made the control least stable, so
+   `Delta_vision` is exactly the comparison that matching makes least reliable.
+
+3.8f's reading cells now carry `<补正 3.8g>` notes in place. Durable conclusions recorded in
+`notes/concepts.md` under "Ablation Discipline".
 
 ## Session Log
 

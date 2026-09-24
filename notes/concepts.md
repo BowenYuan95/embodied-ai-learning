@@ -1073,6 +1073,31 @@ the machine. Here the interactive Jupyter kernel had CUDA while the agent's sand
 of the same notebook, in the same environment, used different hardware. Print the device
 inside the notebook rather than assuming it.
 
+**Measure the seed spread before interpreting any ranking.** One arm at three init seeds (same
+split, same normalisation, same epochs) gave per-arm ranges of `0.009` to `0.034` in `val_chunk`,
+while the arm-to-arm effects being ranked were `0.001` to `0.014`. Two consequences, both
+observed:
+
+- An effect smaller than the seed range is not evidence, and it is worse than merely imprecise:
+  `Delta_vision` read `+0.014186` at the first seed and then `-0.006277`, `+0.001176` — its
+  **sign flips**, so the single-seed number was a draw rather than a measurement.
+- A sweep can also *rescue* a claim. `Delta_E3` was negative at one seed, against the ceiling
+  prediction of 3.8.4.4, and positive at all three — the sweep restored the predicted direction
+  while leaving the magnitude unestablished. Report the direction and the magnitude separately.
+
+**The capacity-matched control can be the noisiest arm.** The widened state-only arm had a range
+of `0.0338`, 2.5x the arm it was matched against, because a wider MLP over 509 samples is simply
+more variable. Matching capacity buys comparability and pays for it in variance, so the
+comparison that motivated the match becomes the one the match makes least reliable. Reduce the
+control's instability rather than adding seeds.
+
+**Same information, different encodability.** `I+p+goal` and `I+p+language` at matched capacity
+(fusion dim 416 both, parameters within 0.1%) have **disjoint** seed ranges and differ by **2.27x**
+(`0.0825 [0.0749, 0.0883]` against `0.0364 [0.0318, 0.0435]`). They carry the *same* information
+on this pool (`H(l | g) = 0`), so the gap is not information but **learnability**: thresholding a
+continuous 3-dim goal into a task is harder than reading a discrete index. Representation choice
+is a learnability question, not only an information question.
+
 ## Task World Model
 
 The world model to build first is **task-level, not pixel-level**:

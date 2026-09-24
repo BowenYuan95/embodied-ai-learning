@@ -976,6 +976,41 @@ Four durable consequences:
   the language test had to be pre-registered as a negative result and moved to a
   deliberately restricted probe: `t=0`, `proprio` only, no image and no `task_goal`.
 
+**Input, use, and understanding are three different claims.** A `language_ids` field
+in the contract establishes only the first. The ladder, weakest to strongest:
+
+| level | testable criterion | what it needs |
+|---|---|---|
+| **input** | the field exists, differs per task, has the right shape | nothing beyond a schema |
+| **use** | a **counterfactual**: replace the instruction, the action must change, and change in the *right direction* | a state at which the task is otherwise unreadable |
+| **understanding** | generalisation to **unseen** instructions: new words, new compositions, referring expressions | more instructions and scene variation than most small pools have |
+
+The counterfactual ladder has three rungs, and they must be built as three *different*
+manipulations or they collapse:
+
+- **T1 correct** — changes nothing. Only shows fit; it cannot show use.
+- **T2 shuffled** — permutes the **word order** of the same instruction (same bag of words).
+- **T3 contradictory** — replaces the **bag of words** with another task's instruction.
+
+With only two tasks, "the wrong instruction" *is* "the other instruction", so a T2 built
+as a task swap is identical to T3 and the ladder has two rungs, not three. A three-rung
+ladder needs at least three instructions. This is a data-design constraint, not a code one.
+
+**T2 is usually a negative control on the architecture, not evidence about language.** Any
+mean- or sum-pooled embedding of token vectors is permutation-invariant, so a model that
+pools language without positional information *must* be insensitive to T2 — mathematically
+exactly, and numerically only to floating-point summation order (measured here: `2.2e-16`
+against `0.609` for T3). If T2 moves the action, either the encoder is not
+permutation-invariant or positional information entered somewhere. A T2 result is therefore
+meaningless unless it is reported against a named architecture.
+
+**Sensitivity is not accuracy, and neither is sensitivity in the right direction.** Three
+things have to hold at once: the counterfactual must move the action (`sens != 0`), it must
+move it toward the correct task's behaviour, and T2 must stay at zero. Offline loss can
+establish none of them, because shuffling the instruction does not change the target — the
+loss necessarily rises and carries no information — and because a language-blind model can
+already read the task from the state.
+
 The general rule is the counterfactual: **a model cannot learn to use a signal the
 data never forces it to use.** Shuffle the instruction, substitute a wrong one,
 and drop it entirely; if the action does not change, no grounding happened,

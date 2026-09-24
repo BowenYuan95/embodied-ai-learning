@@ -817,7 +817,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
 | 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
-| 3.8 multimodal policy transition | **In progress** — `notebooks/3.8_multimodal_policy.ipynb`, 32 cells (21 md / 11 code, all executed, 0 errors). 3.8.1 (input contract), 3.8.2 (time alignment), 3.8.3 (observability), 3.8.4.1–3.8.4.5 (task condition vs language, why the pool does not force language, what data would, language representation levels L0/L1/L2 with ablation arms A/B/C, and the two kinds of grounding with a per-channel leakage map) are done. Contract: `image [3,128,128]` + `language_ids [8]` + `proprio [25]` + `task_goal [3]` -> `action_chunk [8,8]`. 3.8.4.6 (shortcut counterfactuals), 3.8.4.7 (VLA interface), 3.8.5–3.8.6 remain |
+| 3.8 multimodal policy transition | **In progress** — `notebooks/3.8_multimodal_policy.ipynb`, 37 cells (24 md / 13 code, all executed, 0 errors). Done: 3.8.1 contract, 3.8.2 time alignment, 3.8.3 observability, 3.8.4.1-3.8.4.5 task condition vs language and the corrected leakage map, 3.8.4.6 the three-rung counterfactual ladder (T1 correct / T2 shuffled word order / T3 contradictory bag), the permutation-invariance prediction, the `t=0` restricted probe, and the 55.91% task-conditioned headroom (99.54% gripper). Remaining: 3.8.4.7 VLA interface, 3.8.5 minimal fusion model, 3.8.6 ablation and evaluation |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
@@ -827,6 +827,63 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — 3.8.4.6: input is not use is not understanding, and the ladder has to be built as three operations
+
+`notebooks/3.8_multimodal_policy.ipynb` is now 37 cells (24 markdown, 13 code, all executed,
+zero errors). 3.8.4.6 turns "does the model use the language?" into a counterfactual ladder and
+establishes, without training, which rungs this pool can actually support.
+
+**The three levels.** Input / use / understanding are separate claims. Having `language_ids` in
+the contract establishes only *input*, and only 1 bit of it (3.8.4.1). *Use* requires a
+counterfactual. *Understanding* requires generalisation to unseen instructions, which a
+10-word vocabulary, two instructions, and one object per scene cannot test.
+
+**The ladder, and the collapse that had to be avoided.** Three tests weak to strong: **T1**
+correct instruction (fit only), **T2** shuffled instruction, **T3** contradictory instruction.
+With only two tasks, "the wrong instruction" *is* "the other instruction", so building T2 as a
+task swap makes it identical to T3 and leaves a two-rung ladder. The operations were therefore
+separated by *what they vary*: **T2 permutes word order** (`"pick up the cube"` ->
+`"the pick up cube"`, same bag) and **T3 changes the bag** (the other task's instruction). A
+genuine three-rung ladder needs three or more instructions — a data-design constraint, not a
+code one.
+
+**The architectural prediction, computed rather than asserted.** 3.8.5's language encoder will
+mask padding and mean-pool the token embeddings, and any mean/sum pooling is
+permutation-invariant. Measured with a stand-in embedding table: `|correct - shuffled|` is
+**2.2e-16** (floating-point summation order only) while `|correct - contradictory|` is
+**0.609** and `|drop|` is exactly 0. So on this architecture **T2 must leave the action
+unchanged**, which makes T2 a **negative control on the implementation** rather than a test of
+language use; only **T3** can detect use. A T2 reading is meaningless unless reported against a
+named architecture.
+
+**Why the offline loss cannot be the criterion.** Shuffling the instruction does not change the
+target, so the loss necessarily rises and conveys nothing; and a language-blind model can
+already read the task from the state. The quantity to measure is instruction sensitivity
+`||pi(o, l_correct) - pi(o, l_T)||`, and the full criterion is threefold: T3 sensitivity != 0,
+direction correct, T2 == 0. The `drop` mode (all `<pad>`) must be injected **during training**
+as instruction dropout; masking the instruction only at test time yields an
+out-of-distribution artefact rather than evidence of ignoring language.
+
+**The restricted probe, and its ceiling.** `t=0` is the only frame at which the state cannot
+name the task: the five episodes of each task sit on identical proprioception (25 dims, asserted
+episode-wise) and the required action differs in exactly one dimension — the 7 arm dims are
+identical to 6 decimal places and the gripper differs by exactly **+2.0000** (`+1.0` pick,
+`-1.0` push). That satisfies the 3.5 criterion exactly. The probe is therefore `t=0`,
+`proprio` only, no `image`, no `task_goal`. The ceiling for any task-conditioned model on this
+pool, computed without training: `L_blind = 1.02689`, `L_aware = 0.45271`, headroom
+**0.57418 (55.91%)**, of which the gripper is **99.54%**.
+
+**Boundaries recorded.** The probe deliberately removes `image`, so it answers "can language be
+used", not "was language used in this real policy" — the latter needs tasks that are
+inseparable in both state and image, which is P1 data design. `t=0` gives only 5 samples per
+task (10 total; a 10/10 versus 5/10 binomial test has p ~ 0.001). The probe exercises one
+dimension, so it tests "can the instruction pick the gripper's sign" — a minimal instance of
+use, not sufficient evidence of it. And closed-loop feedback can reopen a mis-signalled gripper
+at `t >= 1`, so probe failure does not translate directly into closed-loop failure; the final
+metric remains P0 closed-loop task success.
+
+Durable conclusions recorded in `notes/concepts.md` under "Language Grounding".
 
 ### 2026-09-24 — Correction: 3.8.4.5's leakage map was wrong in all three rows
 

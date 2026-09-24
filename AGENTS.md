@@ -185,6 +185,55 @@ experimental or research gap.
   research question whenever the connection is real; do not force superficial
   XR analogies.
 
+## Execution Discipline: Small Steps and Observable Progress
+
+Long work must be **split into small steps** and must **show progress while it runs**. A
+command or notebook cell that runs for minutes with no output is indistinguishable from a
+hang, and a hang costs a round trip, an abort, and often unsaved work.
+
+### Split the work
+
+- **Verify before scaling.** Run the smallest version first (one arm, a few epochs, one
+  task), read its output, and only then launch the full run.
+- **One unit of work per notebook cell.** A training arm, a sweep, or a data pass gets its
+  own cell, so an error or an interrupt costs one unit rather than the whole notebook.
+- **Never bundle build + execute + long compute into a single call.** Building an artifact
+  and then running it for minutes in the same command hides which step failed.
+
+### Make progress visible
+
+- **Never silence a long loop.** Training loops, sweeps, and data passes must emit progress
+  — per arm, per epoch block, or per N items — with an explicit `flush=True`. A
+  `verbose_every=0`-style switch belongs in tests, not in a cell that runs for minutes.
+- **Report each unit as it finishes**, not only the total: print the arm's result at the
+  moment it completes, so partial results survive an interrupt and are readable while the
+  rest still runs.
+- **Account for the capture boundary.** `nbclient` captures cell stdout into the notebook,
+  so a background execution prints nothing to the terminal until it finishes. To watch a run
+  from outside, execute cell by cell and print a heartbeat to stderr after each cell.
+  `scripts/run_notebook_observable.py` does this and saves after every cell.
+- **Persist partial results.** Write artifacts (metrics, checkpoints, logs) as each step
+  completes, not only at the end. A run that writes once at the very end loses everything
+  when it is interrupted.
+
+### Run long work in the background
+
+- Anything expected to take more than about a minute runs as a **managed background job**,
+  never as a blocking foreground call.
+- Before starting long work, check whether the learner's JupyterLab kernel is already running
+  the same notebook. Two writers on one notebook file destroy each other's state.
+
+### After an interrupt
+
+- **Verify process state before continuing**: look for orphaned processes and for partially
+  written files.
+- **Identify a process by its full command line and start time.** Never infer identity from
+  a CPU or elapsed-time column, and never `pgrep -f` a pattern whose text also appears in
+  your own command line — that matches the shell itself and reports a false positive.
+- **Never kill a process that has not been positively identified as yours.** An interactive
+  `ipykernel` under the Jupyter runtime directory belongs to the learner; killing it destroys
+  their session.
+
 ## Dataset Contract
 
 Every dataset or converter should document, where applicable:

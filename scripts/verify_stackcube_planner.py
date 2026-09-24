@@ -36,10 +36,24 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 
 def make_env(obs_mode="state"):
+    """Exactly the recipe ``scripts/generate_expert_demo.py`` already uses successfully.
+
+    Two things here are load-bearing, and the first version of this script got both wrong:
+
+    (a) ``render_mode`` must **not** be forced to ``None``. Passing it skips the render-device
+        setup that the motion planner depends on, and SAPIEN segfaults (observed as
+        ``exit 139`` with ``device = cuda``, so this was never a CPU-fallback problem).
+    (b) the environment must be **reset before any actor pose is read**; SAPIEN state is
+        uninitialised until then and touching ``pose.p`` segfaults.
+
+    ``CONTROL_MODE`` is imported from the collector rather than repeated, so the two cannot
+    drift apart. ``gym.make`` without ``control_mode`` would give StackCube its default
+    ``pd_joint_delta_pos``, which silently changes action semantics.
+    """
     import gymnasium as gym
     import mani_skill.envs  # noqa: F401  (registers the env ids)
-    return gym.make("StackCube-v1", obs_mode=obs_mode, render_mode=None, num_envs=1,
-                    control_mode="pd_joint_pos")
+    from generate_expert_demo import CONTROL_MODE
+    return gym.make("StackCube-v1", obs_mode=obs_mode, num_envs=1, control_mode=CONTROL_MODE)
 
 
 def cube_positions(env):
@@ -54,7 +68,11 @@ def run_one(seed, pick, truncate):
     env = make_env()
     try:
         out = dict(seed=seed, pick=pick, truncate=truncate, ok=False, error=None)
+        # Reset FIRST: actor poses are uninitialised before this and reading them segfaults.
+        # solve() resets again with the same seed, so "before" still describes the episode.
+        env.reset(seed=seed)
         before_a, before_b, half = cube_positions(env)
+        out["control_mode"] = str(env.unwrapped.control_mode)
         out["pos_cubeA_before"] = np.round(before_a, 4).tolist()
         out["pos_cubeB_before"] = np.round(before_b, 4).tolist()
         out["cubeA_left_of_cubeB"] = bool(before_a[0] < before_b[0])
@@ -114,9 +132,13 @@ def color_check(seeds):
         for seed in seeds:
             obs, _ = env.reset(seed=seed)
             img = obs["image"] if isinstance(obs, dict) else obs
+            if isinstance(img, dict):                  # obs["image"] is keyed by camera name
+                img = next(iter(img.values()))
             x = np.asarray(img[0].cpu().numpy()).astype(np.float32)
-            while x.ndim == 3 and x.shape[0] in (1, 3) and x.shape[0] != x.shape[-1]:
-                x = x[0] if x.shape[0] == 1 else np.transpose(x, (1, 2, 0))
+            if x.shape[0] in (1, 3) and x.shape[0] != x.shape[-1]:   # CHW -> HWC
+                x = np.transpose(x, (1, 2, 0))
+            if x.dtype.max() <= 1.0:                   # some modes return [0,1] floats
+                x = x * 255.0
             r, g = x[..., 0], x[..., 1]
             red = (r > 1.4 * g) & (r > 60)
             green = (g > 1.4 * r) & (g > 60)
@@ -136,6 +158,17 @@ def color_check(seeds):
     return dict(rows=rows)
 
 
+CONFIGS = (("cubeA", False), ("cubeB", False), ("cubeB", True))
+SENTINEL = "RESULT_JSON "
+
+
+def run_single(seed, pick, truncate):
+    """Run one configuration in THIS process and emit a machine-readable line."""
+    r = run_one(seed, pick, truncate)
+    print(SENTINEL + json.dumps(r), flush=True)
+    return 0 if r.get("ok") else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
@@ -143,25 +176,51 @@ def main() -> int:
                     help="also render t=0 and measure red/green separability and their x positions")
     ap.add_argument("--out", type=Path, default=REPO_ROOT / "scripts" / "reports" /
                     "stackcube_planner_check.json")
+    ap.add_argument("--single", nargs=3, metavar=("SEED", "PICK", "TRUNCATE"),
+                    help="internal: run one configuration in this process")
+    ap.add_argument("--no-isolate", action="store_true",
+                    help="run every configuration in-process; a segfault then loses the sweep")
     args = ap.parse_args()
 
+    if args.single:
+        return run_single(int(args.single[0]), args.single[1], bool(int(args.single[2])))
+
+    import subprocess
     import torch
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"device = {device}   (the planner segfaults on a CPU-only fallback; if this says cpu,")
-    print(f"                      stop and re-run where SAPIEN has a working render device)")
+    print(f"device = {device}")
 
     results = []
     for seed in args.seeds:
-        for pick, truncate in (("cubeA", False), ("cubeB", False), ("cubeB", True)):
-            r = run_one(seed, pick, truncate)
-            tag = f"seed {seed}  pick={pick:<5} {'truncated' if truncate else 'full     '}"
-            status = "OK  " if r.get("ok") else "FAIL"
-            print(f"[{status}] {tag}  {r.get('error') or ''}")
-            if not r.get("ok") and not r.get("error"):
-                print(f"         eval={r.get('env_eval')}  stackB_on_A={r.get('stacked_cubeB_on_cubeA')}"
-                      f"  lift_gain_A={r.get('lift_gain_A')} lift_gain_B={r.get('lift_gain_B')}"
-                      f"  diag={r.get('stack_diag')}")
+        for pick, truncate in CONFIGS:
+            label = f"seed {seed}  pick={pick:<5} {'truncated' if truncate else 'full     '}"
+            if args.no_isolate:
+                r = run_one(seed, pick, truncate)
+            else:
+                # One child per configuration: a segfault then identifies WHICH configuration
+                # crashes instead of destroying the whole sweep.
+                proc = subprocess.run(
+                    [sys.executable, str(Path(__file__).resolve()),
+                     "--single", str(seed), pick, str(int(truncate))],
+                    capture_output=True, text=True)
+                r = next((json.loads(line[len(SENTINEL):]) for line in proc.stdout.splitlines()
+                          if line.startswith(SENTINEL)), None)
+                if r is None:
+                    why = f"child exited with code {proc.returncode}"
+                    if proc.returncode == -11:
+                        why += " (SIGSEGV)"
+                    r = dict(seed=seed, pick=pick, truncate=truncate, ok=False, error=why,
+                             stderr=proc.stderr[-500:])
             results.append(r)
+            status = "OK  " if r.get("ok") else "FAIL"
+            print(f"[{status}] {label}  {r.get('error') or ''}")
+            if not r.get("ok") and not r.get("error"):
+                print(f"         control_mode={r.get('control_mode')}  eval={r.get('env_eval')}"
+                      f"  stackB_on_A={r.get('stacked_cubeB_on_cubeA')}"
+                      f"  lift_A={r.get('lift_gain_A')} lift_B={r.get('lift_gain_B')}"
+                      f"  diag={r.get('stack_diag')}")
+            elif r.get("stderr"):
+                print(f"         stderr tail: {r['stderr'].splitlines()[-1][:120] if r['stderr'].splitlines() else ''}")
 
     parsed = [r for r in results if not r.get("error")]
     if parsed:

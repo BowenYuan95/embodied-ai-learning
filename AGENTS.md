@@ -195,6 +195,12 @@ hang, and a hang costs a round trip, an abort, and often unsaved work.
 
 - **Verify before scaling.** Run the smallest version first (one arm, a few epochs, one
   task), read its output, and only then launch the full run.
+- **Reuse a working invocation instead of reconstructing one.** If the repository already
+  drives the same library successfully somewhere, copy that exact call. Creating the ManiSkill
+  environment and running the motion planner already works in `scripts/generate_expert_demo.py`;
+  a driver written from the library's API instead passed `render_mode=None` and read actor
+  poses before the first `reset()`, and both segfaulted. Neither was a library bug, and neither
+  appears in the recipe that already ran.
 - **One unit of work per notebook cell.** A training arm, a sweep, or a data pass gets its
   own cell, so an error or an interrupt costs one unit rather than the whole notebook.
 - **Never bundle build + execute + long compute into a single call.** Building an artifact

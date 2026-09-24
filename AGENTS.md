@@ -227,6 +227,19 @@ hang, and a hang costs a round trip, an abort, and often unsaved work.
 - Before starting long work, check whether the learner's JupyterLab kernel is already running
   the same notebook. Two writers on one notebook file destroy each other's state.
 
+### GPU access and sandbox escalation
+
+- **Do not escalate to reach the GPU by default.** Full sandbox access is granted one command
+  at a time and **never persists** — do not treat a previous approval as standing permission.
+- The agent's shell is denied `/dev/nvidia*` even though the nodes are mode `666`, so CUDA
+  silently falls back to CPU there, while the learner's interactive Jupyter kernel has GPU
+  access. The same notebook can therefore run on different hardware depending on who starts it.
+- **Prefer asking the learner to run the cells**, or ask before each escalation. When a GPU run
+  is genuinely needed, say what it is for and how long it will take.
+- **Record the device with every result.** Print it inside the notebook (the preamble does),
+  because float reduction order differs between backends and the numbers change in the second
+  decimal. A number without its device is not reproducible.
+
 ### After an interrupt
 
 - **Verify process state before continuing**: look for orphaned processes and for partially

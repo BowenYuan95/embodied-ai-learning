@@ -47,10 +47,13 @@ four; a two-object local decision needs no large receptive field, and this is th
 
 Action contract
 ---------------
-``control_mode="pd_joint_pos"``, asserted by the stock planner and identical to
-PickCube/PushCube, so the action side stays frozen while only the input side moves -- the same
-discipline lesson 3.8 has followed throughout. StackCube's **default** is
-``pd_joint_delta_pos``, which would silently change action semantics.
+``control_mode="pd_ee_delta_pos"``, action space ``(4,) = [dx, dy, dz, gripper]`` as a world-frame
+delta in ``[-1, 1]``. This is a **deliberate departure** from lesson 3.8's eight-dimensional
+``pd_joint_pos`` joint targets: a proportional controller needs ``a = K e`` in Cartesian space,
+and joint targets would require inverse kinematics and therefore ``mplib`` -- the dependency the
+scripted expert removes, along with the ``embodied310`` requirement.
+
+The gripper is ``+1`` open and ``-1`` closed. The convention was measured, not assumed.
 """
 
 from __future__ import annotations
@@ -63,9 +66,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 ENV_ID = "StackCube-v1"
 OBS_MODE = "rgb+state"
-CONTROL_MODE = "pd_joint_pos"
-ACTION_DIM = 8
-H = 8                                   # frozen from lesson 3.7
+CONTROL_MODE = "pd_ee_delta_pos"
+# [dx, dy, dz, gripper], WORLD-frame delta, each in [-1, 1]. Measured by commanding one axis for
+# ten steps: +x -> world [+0.1389, +0.0002, +0.0019], +y -> [+0.0261, +0.3657, +0.0047],
+# +z -> [+0.0203, 0, +0.3582]. Cross-coupling is an order of magnitude below the commanded axis,
+# so sign(a[0]) reliably sets the direction of world-x motion -- which is what makes the
+# referential choice a discrete quantity in this action space.
+ACTION_DIM = 4
+ACTION_LAYOUT = ("dx", "dy", "dz", "gripper")
+GRIPPER_OPEN, GRIPPER_CLOSED = 1.0, -1.0
+
+# 0, NOT the environment default of 0.02: the default randomises the robot's initial joint
+# configuration per seed, which made proprio at t=0 differ across seeds (max|d| = 6.63e-02) and
+# broke the premise of Probe A ("identical proprio, different layout"). With 0, six seeds gave
+# bit-identical t=0 proprio while the layout still varied.
+ROBOT_INIT_QPOS_NOISE = 0.0
+
+H = 8                                   # chunk length; the choice of H stays from 3.7
 
 # --- camera contract (see module docstring for the measurement behind it) -----------------
 IMAGE_HW = 512
@@ -140,6 +157,7 @@ def make_env(num_envs: int = 1):
 
     pose = sapien_utils.look_at(eye=list(EYE), target=list(TARGET))
     return gym.make(ENV_ID, obs_mode=OBS_MODE, num_envs=num_envs, control_mode=CONTROL_MODE,
+                    robot_init_qpos_noise=ROBOT_INIT_QPOS_NOISE,
                     sensor_configs={"base_camera": {"width": IMAGE_HW, "height": IMAGE_HW,
                                                     "fov": float(FOV), "pose": pose}})
 

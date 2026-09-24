@@ -912,6 +912,20 @@ cell. Two further mistakes were caught by the discipline itself: the split seed 
 with the init seed (moving the held-out episode from 4 to 2, caught by an assertion), and the
 run progress was hidden behind an unbuffered `grep`.
 
+**Device.** Both notebooks were re-run on an **RTX 3080 Ti Laptop GPU** (`device cuda`,
+confirmed by the preamble print), which is **11.6x faster**: 3.8f went from 844s on 16 CPU cores
+to 73s, and 3.8e from ~90s to 23s. The GPU was available all along; the agent's shell could not
+reach it because the sandbox returned `PermissionError` on mode-666 `/dev/nvidia*` nodes, so
+every earlier run silently fell back to CPU while the learner's Jupyter kernel used the GPU.
+This supersedes the earlier note that CUDA is unavailable on this machine.
+
+Re-running on the other device **changed the numbers in the second decimal** (E1a `0.097776` ->
+`0.097286`, E2 `0.087082` -> `0.088187`) and moved one arm's gripper-sign accuracy from `99.2%`
+to `93.8%` with a different best epoch. The load-bearing conclusions are unchanged: the matched
+`Delta_vision` is `+0.014489` on CPU and `+0.014186` on GPU, and the `t=0` probe is `50.0%` /
+`100.0%` on both. The arm rankings that were already within noise stay within noise, and the
+`E3c`-versus-`E3b` gap shrank from `-0.002892` to `-0.001305`.
+
 Durable conclusions recorded in `notes/concepts.md` under "Ablation Discipline".
 
 ### 2026-09-24 — 3.8 split into four notebooks, with the contract extracted to a module

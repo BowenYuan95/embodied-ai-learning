@@ -1058,6 +1058,21 @@ provably identical in expectation, and a difference would mean the implementatio
 Registering such a pair as a control, and saying in advance what its result must be, is worth
 more than another arm.
 
+**The device is a variance source, so record it with every result.** The same six arms run on
+16 CPU cores and on an RTX 3080 Ti give `val_chunk` values that differ in the **second decimal**
+(E1a `0.097776` against `0.097286`; E2 `0.087082` against `0.088187`), and one arm's
+gripper-sign accuracy moved from `99.2%` to `93.8%` with a different best epoch. Float
+reduction order differs between backends, so the training trajectory diverges even at a fixed
+seed. What survived the device change: the capacity-matched `Delta_vision` (`+0.014489` on CPU,
+`+0.014186` on GPU) and the `t=0` probe (`50.0%` / `100.0%` on both). What did not: any arm
+ranking separated by less than that gap. A number without its device is not reproducible.
+
+A related trap: whether the GPU is visible depends on **how the process was launched**, not on
+the machine. Here the interactive Jupyter kernel had CUDA while the agent's sandboxed shell got
+`PermissionError` on mode-666 `/dev/nvidia*` nodes and silently fell back to CPU — so two runs
+of the same notebook, in the same environment, used different hardware. Print the device
+inside the notebook rather than assuming it.
+
 ## Task World Model
 
 The world model to build first is **task-level, not pixel-level**:

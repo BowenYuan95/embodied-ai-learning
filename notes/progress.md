@@ -273,6 +273,15 @@ is why the 200-step configuration had to assert the effective limit explicitly.
   the previous run (`np.array_equal`). This supersedes the earlier
   "replay agrees to `~1e-2` with a one-frame `is_grasped` flip" claim, which is
   not reproducible and is explained by the old file's one-frame schema offset.
+  **`[open]` 2026-09-24 — the flip was reproduced.** A fresh action replay reproduces
+  only episode 0 exactly; episodes 1, 2 and 4 drift (`qpos` <= `7.3e-05` rad,
+  `obj_pose` <= `4.8e-03`) and **four of five episodes show `is_grasped` differing at
+  exactly one step**. Episode 3 is the sharpest case: every other block is bit-exact and
+  `is_grasped` still differs at one step. Re-running the *planner* in a fresh process is
+  bit-exact in all five episodes, so what fails to reproduce is the **action replay**,
+  not the planner. The original measurement may have compared a different code path;
+  this marker records the conflict without adjudicating it. Evidence and the per-block
+  table: "RGB expert collection, and an action-replay conflict with 2.9" below.
 - [x] Action smoothness separates the two data regimes. `[verified]` — recomputed
   from the payloads: random fixture `mean |Δa| = 0.6723`; expert per-episode
   `0.0078 / 0.0074 / 0.0080 / 0.0077 / 0.0077` (mean `0.0077`).
@@ -808,7 +817,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
 | 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
-| 3.8 multimodal policy transition | not started |
+| 3.8 multimodal policy transition | **In progress** — 3.8.1 (input contract) and 3.8.2 (time alignment) are in `notebooks/3.8_multimodal_policy.ipynb` (11 cells, 4/4 code executed, 0 errors). Contract: `image [3,128,128]` + `language_ids` + `proprio [25]` + `task_goal [3]` -> `action_chunk [8,8]`, action side frozen at 3.7's shape. 3.8.3-3.8.7 remain |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
@@ -818,6 +827,114 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — RGB expert collection, and an action-replay conflict with 2.9
+
+Lesson 3.8 needs `(image, language, state) -> action chunk`, and the repository had no
+images at all: all three HDF5 files store only `actions` / `observations` / `rewards`
+(plus scalars in the smoke file), because `scripts/generate_expert_demo.py` hard-coded
+`OBS_MODE = "state"`. The images were never requested, not requested and then dropped.
+
+**Rendering works without CUDA.** `obs_mode="rgb"` returns
+`sensor_data.base_camera.rgb (1, 128, 128, 3) uint8` on this machine; `rgbd` adds
+`depth int16` and `sensor_data` adds `PositionSegmentation`. There is one camera
+(`base_camera`) at a default 128x128. So 3.8 can be an experiment rather than a
+design-only lesson.
+
+**The goal is not observable in the image — verified in the source, not by eye.**
+`mani_skill/envs/tasks/tabletop/pick_cube.py:95-104` builds `goal_site` and then appends
+it to `self._hidden_objects`; `push_cube.py:137` documents that list as "hide some Actors
+from view", and `sapien_env.py:1356` notes that such objects are shown only in the GUI
+viewer. The task docstring at `pick_cube.py:25` nevertheless says "marked by a green
+sphere": the documentation is wrong and the code is right. Projecting the goal's 3D
+position into the frame puts it at pixel `(63.7, 61.1)`, where there is nothing but the
+robot's own body, so at this camera angle it would be occluded even if it were rendered.
+Consequence for 3.8: PickCube's success test is `||goal - cube|| <= 0.025`, so removing
+`goal_pos` from the state to buy deployability makes the task unsolvable from
+`(image, language, proprio)` alone — and no loss curve would show it.
+
+**`build42` is bit-exact, and rendering does not perturb physics.** A visual `obs_mode`
+does not return the 42-d state, and `PickCube._get_obs_extra` only adds `obj_pose` /
+`tcp_to_obj_pos` / `obj_to_goal_pos` when `"state" in self.obs_mode`, so the state must be
+rebuilt from the same primitives in the verified block order. Stepping a `state` env and
+an `rgb` env with identical actions over a whole episode (74 steps) gave
+`build42(rgb_env)` vs `obs["state"]` a maximum difference of `0.000e+00`. That validates
+the rebuild and shows the renderer does not perturb the simulation.
+
+**Collection.** `scripts/generate_expert_demo.py` gained `--obs-mode` and `--compare`,
+image recording, and the `build42` rebuild (14 edits; backup at
+`/tmp/generate_expert_demo.py.bak`). Running it with `--obs-mode rgb` produced
+`datasets/pickcube/expert_episodes_rgb.h5`: 5/5 successful episodes with
+`T = 74/74/50/86/76`, identical to the state-only file; `images (T+1, 128, 128, 3)` uint8
+aligned index-for-index with `observations`; 17.9 MB raw and **1.89 MB on disk** (gzip).
+The source file was opened read-only and is unchanged, and `datasets/*` plus `*.h5` are
+in `.gitignore`, so the payload is not committed.
+
+**The reproducibility pair that locates the conflict.**
+
+| Method | Result |
+|---|---|
+| planner re-run, fresh process, `--obs-mode rgb` | **bit-exact in all 5 episodes** against the state-only file (`max = 0.000e+00`) |
+| action replay of the stored actions, fresh env | episode 0 exact; 1, 2, 4 drift; `is_grasped` differs in 4 of 5 |
+
+Per-block action-replay difference (state mode, `pd_joint_pos`):
+
+| episode | qpos | qvel | is_grasped | obj_pose | steps differing |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 / 75 |
+| 1 | 5.18e-05 | 7.90e-03 | **1.0 (1 step)** | 4.41e-03 | 33 / 75 |
+| 2 | 7.33e-05 | 8.32e-03 | **1.0 (1 step)** | 2.60e-03 | 8 / 51 |
+| 3 | 0 | 0 | **1.0 (1 step)** | 0 | 0 / 87 |
+| 4 | 2.51e-05 | 8.59e-03 | **1.0 (1 step)** | 4.81e-03 | 6 / 77 |
+
+Two controls rule out the obvious explanations: `goal_pos` is bit-exact everywhere (it is
+static within an episode), and `obs["state"]` equals the `build42` rebuild bit-exactly,
+so the accessor path is not the cause. Episode 3 isolates the phenomenon: every
+continuous block reproduces exactly while `is_grasped` still differs at one step, so the
+flip is not a consequence of trajectory drift — that boolean sits on a threshold at that
+step.
+
+So the 2.9 claim that holds is **planner determinism**; the one that does not is that
+**action replay** reproduces the stored observations exactly, and the "one-frame
+`is_grasped` flip" dismissed there is reproducible. The 2.9 bullet now carries an
+`[open]` marker; this entry states the conflict rather than adjudicating the past, since
+the original measurement may have used a different comparison path.
+
+**Language has no home in the data yet.** The only instruction string in the repository
+is in the LeRobot metadata (`tasks.parquet`: `pick up the cube`). The RGB HDF5 carries
+root attr `task = "PickCube-v1"` — an environment id, not an instruction — and no
+per-episode instruction field. 3.8.4's experiment, comparing a fixed instruction against
+several, therefore needs an instruction field added before it can mean anything.
+
+**Notebook 3.8.1 / 3.8.2.** `notebooks/3.8_multimodal_policy.ipynb` (11 cells: 7 markdown,
+4 code, all executed, zero errors) turns the above into a checkable contract. It asserts
+the dataset schema, builds one real sample and prints every field, displays the image, and
+checks index-level alignment across all five episodes. The contract is
+`image [3,128,128] uint8` + `language_ids [6] int64` + `proprio [25] float32` +
+`task_goal [3] float32` -> `action_chunk [8,8] float32`, with the action side frozen at
+3.7's shape so that 3.8.6 can attribute any difference to the modalities rather than to the
+action representation.
+
+Two by-products worth keeping. The `language` field is a whitespace-tokenizer placeholder
+(`pick up the cube` -> 6 ids, `[1, 3, 4, 5, 6, 2]`) because the repository has no
+tokenizer; the point of the field now is to have a definite shape, not a good tokenizer.
+And the notebook records that alignment is **index-based, not time-based**: there is no
+per-frame timestamp anywhere in the data, so the existing 20 Hz-versus-declared-50-fps
+defect becomes a real risk as soon as images and actions must be paired on a real robot
+with a camera whose rate differs from the control rate.
+
+**A correction found while reviewing the learner's self-check answers.** The
+`if "state" in self.obs_mode` branch in `PickCube._get_obs_extra` implies that `obs_mode`
+can be *combined*. It can: `obs_mode="rgb+state"` returns both `obs["state"]` (the same
+42-d vector) and `obs["sensor_data"][base_camera]["rgb"]` **from the same `env.step`**
+(`parse_obs_mode_to_struct`, `sapien_env.py:296`). The `build42` rebuild written earlier
+this session was therefore unnecessary. It was deleted from the collector, together with
+the metadata string that had recorded the rebuild, and the collection was re-run with
+`--obs-mode rgb+state`. The resulting file is **byte-identical in `images`** to the
+`build42` version and still bit-exact in `observations` and `actions` against the
+state-only expert file, so the simplification is proven equivalent rather than merely
+also-correct.
+
 
 ### 2026-09-24 — 3.7 follow-ups: the H question is closed, and the K-clipping mechanism is measured
 

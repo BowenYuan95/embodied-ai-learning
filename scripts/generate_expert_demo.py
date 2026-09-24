@@ -44,9 +44,29 @@ asserts the mode and the action dimension before recording anything.
 Only successful episodes are written. Failed seeds are reported to stderr and
 excluded from the file, because a failure is not an expert demonstration.
 
+Visual observations
+-------------------
+``--obs-mode rgb`` (or ``rgbd``) collects the same episodes **with per-frame
+images**. The planner already emits valid ``pd_joint_pos`` actions, so only the
+observation side changes; the canonical ``T + 1`` / ``T`` schema is untouched and
+the image at index ``k`` belongs to the same step as ``observations[k]``.
+
+Visual observation modes must be **combined** with ``state`` — use
+``--obs-mode rgb+state``. ManiSkill parses ``obs_mode`` into a struct
+(``parse_obs_mode_to_struct``), so a combined mode returns both ``obs["state"]`` (the
+same 42-d vector as ``obs_mode="state"``) and the camera image, **from the same
+``env.step``**.
+
+An earlier revision of this script rebuilt the state by hand (``build42``) because a
+plain ``rgb`` mode exposes no state. That rebuild was unnecessary: the combined mode
+is natively supported, and taking the state straight from ManiSkill is one less
+reimplementation of its flattening order to keep correct.
+
 Usage (run from the repository root, in the NumPy-1.x environment):
 
     python scripts/generate_expert_demo.py --seeds 0 1 2 3 4 --overwrite
+    python scripts/generate_expert_demo.py --seeds 0 1 2 3 4 --obs-mode rgb+state \
+        --out datasets/pickcube/expert_episodes_rgb.h5 --overwrite
 """
 
 from __future__ import annotations
@@ -61,7 +81,9 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 ENV_ID = "PickCube-v1"
-OBS_MODE = "state"
+OBS_MODE = "state"  # default; --obs-mode switches to a visual observation mode
+CAMERA = "base_camera"
+STATE_DIM = 42
 # The stock planner requires this control mode; see the module docstring.
 CONTROL_MODE = "pd_joint_pos"
 ACTION_DIM = 8
@@ -76,12 +98,15 @@ class StepRecorder:
     ``env.reset``, followed by the observation returned by each ``env.step``.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, obs_mode=OBS_MODE):
         self.env = env
+        self.obs_mode = obs_mode
         self.reset_observation = None
+        self.reset_image = None
         self.actions = []
         self.rewards = []
         self.next_observations = []
+        self.next_images = []
         self._original_step = env.step
         self._original_reset = env.reset
 
@@ -101,23 +126,37 @@ class StepRecorder:
             value = value.detach().cpu().numpy()
         return np.asarray(value)
 
-    def _flatten_observation(self, observation):
-        # obs_mode="state" returns a plain tensor, but the dict form is accepted
-        # for robustness against ManiSkill observation wrappers.
+    def _state_of(self, observation):
+        """Extract the 42-d state. A visual mode must be combined with ``state``."""
         if isinstance(observation, dict):
+            if "state" not in observation:
+                raise RuntimeError(
+                    f"obs_mode={self.obs_mode!r} exposes no 'state'. For visual "
+                    f"collection use a combined mode such as 'rgb+state', so the state "
+                    f"and the image come from the same env.step instead of being rebuilt."
+                )
             observation = observation["state"]
         return self._to_numpy(observation).reshape(-1)
 
+    def _extract(self, observation):
+        """Return ``(state42, image_or_None)``."""
+        image = None
+        if isinstance(observation, dict) and "sensor_data" in observation:
+            image = self._to_numpy(observation["sensor_data"][CAMERA]["rgb"][0])
+        return self._state_of(observation), image
+
     def _recording_reset(self, *args, **kwargs):
         observation, info = self._original_reset(*args, **kwargs)
-        self.reset_observation = self._flatten_observation(observation)
+        self.reset_observation, self.reset_image = self._extract(observation)
         return observation, info
 
     def _recording_step(self, action):
         observation, reward, terminated, truncated, info = self._original_step(action)
+        state, image = self._extract(observation)
         self.actions.append(self._to_numpy(action).reshape(-1))
         self.rewards.append(float(self._to_numpy(reward).reshape(-1)[0]))
-        self.next_observations.append(self._flatten_observation(observation))
+        self.next_observations.append(state)
+        self.next_images.append(image)
         return observation, reward, terminated, truncated, info
 
     def arrays(self):
@@ -136,14 +175,23 @@ class StepRecorder:
                 f"transition schema violated: {len(observations)} observations for "
                 f"{len(actions)} actions (expected T + 1)"
             )
-        return {"observations": observations, "actions": actions, "rewards": rewards}
+        arrays = {"observations": observations, "actions": actions, "rewards": rewards}
+        if self.reset_image is not None:
+            images = np.asarray([self.reset_image, *self.next_images], dtype=np.uint8)
+            if len(images) != len(observations):
+                raise RuntimeError(
+                    f"image/observation misalignment: {len(images)} images for "
+                    f"{len(observations)} observations"
+                )
+            arrays["images"] = images
+        return arrays
 
 
-def run_solver(env, seed):
+def run_solver(env, seed, obs_mode=OBS_MODE):
     """Run ManiSkill's own PickCube solution; return its result plus a recorder."""
     from mani_skill.examples.motionplanning.panda.solutions.pick_cube import solve
 
-    with StepRecorder(env) as recorder:
+    with StepRecorder(env, obs_mode=obs_mode) as recorder:
         result = solve(env, seed=seed, debug=False, vis=False)
     return result, recorder
 
@@ -166,6 +214,18 @@ def main() -> int:
     parser.add_argument("--seeds", type=int, nargs="+", default=[0], help="one episode per seed")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--obs-mode",
+        default=OBS_MODE,
+        help="ManiSkill observation mode; use a combined mode such as 'rgb+state' to "
+             "record per-frame images together with the state vector",
+    )
+    parser.add_argument(
+        "--compare",
+        type=Path,
+        default=None,
+        help="optional state-only reference file; prints a per-block reproducibility diff",
+    )
     args = parser.parse_args()
 
     if args.out.exists() and not args.overwrite:
@@ -177,16 +237,17 @@ def main() -> int:
     import mani_skill.envs  # noqa: F401  registers the environments
 
     print(f"environment : {ENV_ID}")
+    print(f"obs mode    : {args.obs_mode}")
     print(f"control mode: {CONTROL_MODE}")
     print(f"seeds       : {args.seeds}")
 
     episodes = []
     failed_seeds = []
     for seed in args.seeds:
-        env = gym.make(ENV_ID, obs_mode=OBS_MODE, control_mode=CONTROL_MODE, num_envs=1)
+        env = gym.make(ENV_ID, obs_mode=args.obs_mode, control_mode=CONTROL_MODE, num_envs=1)
         try:
             verify_control_mode(env)
-            result, recorder = run_solver(env, seed)
+            result, recorder = run_solver(env, seed, obs_mode=args.obs_mode)
             arrays = recorder.arrays()
             evaluation = env.unwrapped.evaluate()
             success = bool(evaluation["success"].item())
@@ -228,7 +289,7 @@ def main() -> int:
         handle.attrs.update(
             {
                 "env_id": ENV_ID,
-                "obs_mode": OBS_MODE,
+                "obs_mode": args.obs_mode,
                 "control_mode": CONTROL_MODE,
                 "robot": "Panda",
                 "task": "PickCube-v1",
@@ -264,9 +325,24 @@ def main() -> int:
                 ),
             }
         )
+        if "sensor_data" in args.obs_mode or "rgb" in args.obs_mode or "depth" in args.obs_mode:
+            handle.attrs["image_camera"] = CAMERA
+            # a numeric shape, not a JSON string: it is machine-readable data
+            handle.attrs["image_shape"] = np.asarray(
+                episodes[0]["images"].shape[1:], dtype=np.int64
+            )
+            handle.attrs["image_dtype"] = str(episodes[0]["images"].dtype)
+            handle.attrs["image_source"] = (
+                "co-generated with the state by the same planner run; obs_mode is a "
+                "combined mode (e.g. rgb+state) so obs['state'] and the camera image come "
+                "from the same env.step"
+            )
         for index, episode in enumerate(episodes):
             group = handle.create_group(f"episode_{index:06d}")
-            for key in ("observations", "actions", "rewards"):
+            keys = ["observations", "actions", "rewards"]
+            if "images" in episode:
+                keys.append("images")
+            for key in keys:
                 group.create_dataset(key, data=episode[key], compression="gzip")
             group.attrs["success"] = episode["success"]
             group.attrs["is_obj_placed"] = episode["is_obj_placed"]
@@ -276,6 +352,32 @@ def main() -> int:
             group.attrs["num_observations"] = len(episode["observations"])
 
     print(f"written: {args.out}")
+
+    if args.compare is not None and args.compare.exists():
+        print(f"\nreproducibility vs {args.compare}:")
+        blocks = [("qpos", 0, 9), ("qvel", 9, 18), ("is_grasped", 18, 19),
+                  ("tcp_pose", 19, 26), ("goal_pos", 26, 29), ("obj_pose", 29, 36),
+                  ("tcp_to_obj", 36, 39), ("obj_to_goal", 39, 42)]
+        with h5py.File(args.compare, "r") as ref:
+            for index, episode in enumerate(episodes):
+                name = f"episode_{index:06d}"
+                if name not in ref:
+                    print(f"  {name}: absent from the reference")
+                    continue
+                old = ref[name]["observations"][:]
+                new = episode["observations"]
+                if old.shape != new.shape:
+                    print(f"  {name}: shape differs {old.shape} vs {new.shape}")
+                    continue
+                diff = np.abs(old - new)
+                worst = diff.max()
+                print(f"  {name}: max={worst:.3e}", end="")
+                if worst > 1e-6:
+                    hit = [f"{b}={diff[:, lo:hi].max():.2e}"
+                           for b, lo, hi in blocks if diff[:, lo:hi].max() > 1e-6]
+                    print("  differs in " + ", ".join(hit))
+                else:
+                    print("  (bit-exact)")
     print(
         "\nNOTE: this is expert data in pd_joint_pos semantics. The project's existing "
         "fixture is pd_joint_delta_pos; see notes/progress.md for how the two relate."

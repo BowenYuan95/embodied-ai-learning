@@ -120,34 +120,47 @@ def run_one(seed, pick, truncate):
 
 
 def color_check(seeds):
-    """Is red vs green separable in the rendered frame, and where are they?
+    """Are red and green separable in the rendered frame, and where are they?
 
-    Leakage check #3/#4: if the colours are not distinguishable at the render resolution the
-    task is impossible rather than grounding-requiring, and if they are always on a fixed side
-    the instruction is not needed.
+    Obs extraction reuses ``StepRecorder`` rather than re-deriving it. Images live under
+    ``obs["sensor_data"][CAMERA]["rgb"]``, NOT ``obs["image"]`` (the first version guessed and
+    raised ``KeyError: 'image'``), and the recorder requires a combined mode, hence
+    ``rgb+state``.
+
+    Thresholds come from measurement, not guesswork. Using lesson 3.8.3's cube-to-pixel
+    projection, the per-cube mean ``R-G`` is about +120 for the red cube (cubeA), -120 for the
+    green cube (cubeB), and +66 for the table behind them. A window of |R-G| > 90 therefore
+    separates all three; a plain ``R > G`` test does not, because the table is also red-dominant.
+
+    This is deliberately a smoke test. The rigorous per-cube measurement (mean colour and pixel
+    footprint from the depth map) belongs to step 3.
     """
-    env = make_env(obs_mode="rgb")
+    from generate_expert_demo import StepRecorder
+    env = make_env(obs_mode="rgb+state")
     rows = []
     try:
         for seed in seeds:
-            obs, _ = env.reset(seed=seed)
-            img = obs["image"] if isinstance(obs, dict) else obs
-            if isinstance(img, dict):                  # obs["image"] is keyed by camera name
-                img = next(iter(img.values()))
-            x = np.asarray(img[0].cpu().numpy()).astype(np.float32)
-            if x.shape[0] in (1, 3) and x.shape[0] != x.shape[-1]:   # CHW -> HWC
-                x = np.transpose(x, (1, 2, 0))
-            if x.dtype.max() <= 1.0:                   # some modes return [0,1] floats
-                x = x * 255.0
-            r, g = x[..., 0], x[..., 1]
-            red = (r > 1.4 * g) & (r > 60)
-            green = (g > 1.4 * r) & (g > 60)
+            with StepRecorder(env, obs_mode="rgb+state") as rec:
+                env.reset(seed=seed)
+            if rec.reset_image is None:
+                return dict(error="renderer produced no image (software rendering disabled?)",
+                            rows=rows)
+            x = np.asarray(rec.reset_image).astype(np.float32)
+            rg = x[..., 0] - x[..., 1]
+
             def centroid(mask):
                 if mask.sum() == 0:
                     return None
                 ys, xs = np.nonzero(mask)
                 return [round(float(xs.mean()), 1), round(float(ys.mean()), 1), int(mask.sum())]
-            rows.append(dict(seed=seed, shape=list(x.shape), red=centroid(red), green=centroid(green)))
+
+            u = env.unwrapped
+            rows.append(dict(
+                seed=seed, shape=list(x.shape),
+                red=centroid(rg > 90), green=centroid(rg < -90),
+                cubeA_x=round(float(u.cubeA.pose.p[0, 0]), 4),
+                cubeB_x=round(float(u.cubeB.pose.p[0, 0]), 4),
+                cubeA_left=bool(u.cubeA.pose.p[0, 0] < u.cubeB.pose.p[0, 0])))
     except Exception as exc:                                       # noqa: BLE001
         return dict(error=f"{type(exc).__name__}: {exc}", rows=rows)
     finally:
@@ -156,17 +169,6 @@ def color_check(seeds):
         except Exception:                                          # noqa: BLE001
             pass
     return dict(rows=rows)
-
-
-CONFIGS = (("cubeA", False), ("cubeB", False), ("cubeB", True))
-SENTINEL = "RESULT_JSON "
-
-
-def run_single(seed, pick, truncate):
-    """Run one configuration in THIS process and emit a machine-readable line."""
-    r = run_one(seed, pick, truncate)
-    print(SENTINEL + json.dumps(r), flush=True)
-    return 0 if r.get("ok") else 1
 
 
 def main() -> int:
@@ -233,12 +235,16 @@ def main() -> int:
     if args.check_color:
         cc = color_check(args.seeds)
         payload["color_check"] = cc
-        print("\ncolour check (t=0 render):")
+        print("\ncolour check (t=0 render, |R-G| > 90 window):")
         if cc.get("error"):
             print(f"  error: {cc['error']}")
         for row in cc.get("rows", []):
-            print(f"  seed {row['seed']}: shape {row['shape']}  red={row['red']}  green={row['green']}")
-        print("  red/green must both be non-None, i.e. each colour occupies visible pixels.")
+            print(f"  seed {row['seed']}: {row['shape']}  red={row['red']}  green={row['green']}")
+            print(f"           cubeA_x={row.get('cubeA_x')} cubeB_x={row.get('cubeB_x')}"
+                  f"  cubeA_left={row.get('cubeA_left')}")
+        print("  Both must be non-None. WATCH THE PIXEL COUNTS: on this camera each cube is only")
+        print("  5-10 px at 128x128, and the 3.8.5 CNN downsamples 16x, so raise the camera")
+        print("  resolution before collecting or the model cannot see the colour at all.")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2))

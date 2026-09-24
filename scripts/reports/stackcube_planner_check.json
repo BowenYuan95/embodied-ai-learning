@@ -1,0 +1,423 @@
+{
+  "device": "cuda",
+  "results": [
+    {
+      "seed": 0,
+      "pick": "cubeA",
+      "truncate": false,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        -0.08309999853372574,
+        -0.09350000321865082,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        -0.03929999843239784,
+        0.10729999840259552,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": true,
+      "pos_cubeA_after": [
+        -0.04580000042915344,
+        0.10830000042915344,
+        0.05999999865889549
+      ],
+      "pos_cubeB_after": [
+        -0.03929999843239784,
+        0.10750000178813934,
+        0.019999999552965164
+      ],
+      "lift_gain_A": 0.04,
+      "lift_gain_B": 0.0,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": true,
+        "is_cubeA_static": true,
+        "success": true
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": false,
+      "stack_diag": {
+        "dz": 0.04,
+        "lateral": 0.0066,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "(tensor([[ 2.0715e-01,  5.2709e-01, -2.3361e-02, -2.1015e+00,  3.1601e-02,\n          2.6284e+00, -3.4914e-01,  3.8919e-0"
+    },
+    {
+      "seed": 0,
+      "pick": "cubeB",
+      "truncate": false,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        -0.08309999853372574,
+        -0.09350000321865082,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        -0.03929999843239784,
+        0.10729999840259552,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": true,
+      "pos_cubeA_after": [
+        -0.08309999853372574,
+        -0.09350000321865082,
+        0.019999999552965164
+      ],
+      "pos_cubeB_after": [
+        -0.08739999681711197,
+        -0.09099999815225601,
+        0.05999999865889549
+      ],
+      "lift_gain_A": -0.0,
+      "lift_gain_B": 0.04,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": false,
+        "is_cubeA_static": true,
+        "success": false
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": true,
+      "stack_diag": {
+        "dz": 0.04,
+        "lateral": 0.005,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "(tensor([[-2.7983e-02,  4.3013e-01, -1.3209e-01, -2.2651e+00,  1.2097e-01,\n          2.6870e+00, -4.1986e-01,  3.8920e-0"
+    },
+    {
+      "seed": 0,
+      "pick": "cubeB",
+      "truncate": true,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        -0.08309999853372574,
+        -0.09350000321865082,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        -0.03929999843239784,
+        0.10729999840259552,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": true,
+      "pos_cubeA_after": [
+        -0.08309999853372574,
+        -0.09350000321865082,
+        0.019999999552965164
+      ],
+      "pos_cubeB_after": [
+        -0.04050000011920929,
+        0.10849999636411667,
+        0.1145000010728836
+      ],
+      "lift_gain_A": -0.0,
+      "lift_gain_B": 0.0945,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": false,
+        "is_cubeA_static": true,
+        "success": false
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": false,
+      "stack_diag": {
+        "dz": 0.0945,
+        "lateral": 0.2065,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "{'actions': None, 'truncate_at': 'lift'}"
+    },
+    {
+      "seed": 1,
+      "pick": "cubeA",
+      "truncate": false,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        0.032099999487400055,
+        0.04969999939203262,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        -0.04259999841451645,
+        0.07580000162124634,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": false,
+      "pos_cubeA_after": [
+        -0.042500000447034836,
+        0.07500000298023224,
+        0.05999999865889549
+      ],
+      "pos_cubeB_after": [
+        -0.04259999841451645,
+        0.07580000162124634,
+        0.019999999552965164
+      ],
+      "lift_gain_A": 0.04,
+      "lift_gain_B": -0.0,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": true,
+        "is_cubeA_static": true,
+        "success": true
+      },
+      "stacked_cubeA_on_cubeB": true,
+      "stacked_cubeB_on_cubeA": false,
+      "stack_diag": {
+        "dz": 0.04,
+        "lateral": 0.0009,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "(tensor([[ 5.0027e-02,  5.1634e-01,  7.5521e-02, -2.1041e+00, -7.3366e-02,\n          2.6178e+00, -1.0443e+00,  3.8919e-0"
+    },
+    {
+      "seed": 1,
+      "pick": "cubeB",
+      "truncate": false,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        0.032099999487400055,
+        0.04969999939203262,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        -0.04259999841451645,
+        0.07580000162124634,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": false,
+      "pos_cubeA_after": [
+        0.032099999487400055,
+        0.04969999939203262,
+        0.019999999552965164
+      ],
+      "pos_cubeB_after": [
+        0.032099999487400055,
+        0.048700001090765,
+        0.05999999865889549
+      ],
+      "lift_gain_A": -0.0,
+      "lift_gain_B": 0.04,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": false,
+        "is_cubeA_static": true,
+        "success": false
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": true,
+      "stack_diag": {
+        "dz": 0.04,
+        "lateral": 0.001,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "(tensor([[ 5.3573e-02,  6.7641e-01,  2.3399e-02, -1.8110e+00, -2.5731e-02,\n          2.4845e+00, -8.4823e-01,  3.8921e-0"
+    },
+    {
+      "seed": 1,
+      "pick": "cubeB",
+      "truncate": true,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        0.032099999487400055,
+        0.04969999939203262,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        -0.04259999841451645,
+        0.07580000162124634,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": false,
+      "pos_cubeA_after": [
+        0.032099999487400055,
+        0.04969999939203262,
+        0.019999999552965164
+      ],
+      "pos_cubeB_after": [
+        -0.04520000144839287,
+        0.07530000060796738,
+        0.11410000175237656
+      ],
+      "lift_gain_A": -0.0,
+      "lift_gain_B": 0.0941,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": false,
+        "is_cubeA_static": true,
+        "success": false
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": false,
+      "stack_diag": {
+        "dz": 0.0941,
+        "lateral": 0.0814,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "{'actions': None, 'truncate_at': 'lift'}"
+    },
+    {
+      "seed": 2,
+      "pick": "cubeA",
+      "truncate": false,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        0.05040000006556511,
+        -0.03400000184774399,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        0.065700002014637,
+        0.023800000548362732,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": true,
+      "pos_cubeA_after": [
+        0.06109999865293503,
+        0.02810000069439411,
+        0.05999999865889549
+      ],
+      "pos_cubeB_after": [
+        0.06239999830722809,
+        0.025599999353289604,
+        0.019999999552965164
+      ],
+      "lift_gain_A": 0.04,
+      "lift_gain_B": 0.0,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": true,
+        "is_cubeA_static": true,
+        "success": true
+      },
+      "stacked_cubeA_on_cubeB": true,
+      "stacked_cubeB_on_cubeA": false,
+      "stack_diag": {
+        "dz": 0.04,
+        "lateral": 0.0028,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "(tensor([[-5.6337e-02,  7.4714e-01,  1.1292e-01, -1.6853e+00, -1.1548e-01,\n          2.4226e+00, -1.3914e+00,  3.8921e-0"
+    },
+    {
+      "seed": 2,
+      "pick": "cubeB",
+      "truncate": false,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        0.05040000006556511,
+        -0.03400000184774399,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        0.065700002014637,
+        0.023800000548362732,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": true,
+      "pos_cubeA_after": [
+        0.05040000006556511,
+        -0.03400000184774399,
+        0.019999999552965164
+      ],
+      "pos_cubeB_after": [
+        0.04749999940395355,
+        -0.03310000151395798,
+        0.05999999865889549
+      ],
+      "lift_gain_A": 0.0,
+      "lift_gain_B": 0.04,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": false,
+        "is_cubeA_static": true,
+        "success": false
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": true,
+      "stack_diag": {
+        "dz": 0.04,
+        "lateral": 0.003,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "(tensor([[-6.9774e-02,  7.1280e-01,  2.5722e-02, -1.7335e+00, -2.8169e-02,\n          2.4407e+00, -1.0197e+00,  3.8921e-0"
+    },
+    {
+      "seed": 2,
+      "pick": "cubeB",
+      "truncate": true,
+      "ok": true,
+      "error": null,
+      "control_mode": "pd_joint_pos",
+      "pos_cubeA_before": [
+        0.05040000006556511,
+        -0.03400000184774399,
+        0.019999999552965164
+      ],
+      "pos_cubeB_before": [
+        0.065700002014637,
+        0.023800000548362732,
+        0.019999999552965164
+      ],
+      "cubeA_left_of_cubeB": true,
+      "pos_cubeA_after": [
+        0.05040000006556511,
+        -0.03400000184774399,
+        0.019999999552965164
+      ],
+      "pos_cubeB_after": [
+        0.06379999965429306,
+        0.023000000044703484,
+        0.11599999666213989
+      ],
+      "lift_gain_A": -0.0,
+      "lift_gain_B": 0.096,
+      "env_eval": {
+        "is_cubeA_grasped": false,
+        "is_cubeA_on_cubeB": false,
+        "is_cubeA_static": true,
+        "success": false
+      },
+      "stacked_cubeA_on_cubeB": false,
+      "stacked_cubeB_on_cubeA": false,
+      "stack_diag": {
+        "dz": 0.096,
+        "lateral": 0.0586,
+        "expected_dz": 0.04,
+        "half": 0.02
+      },
+      "solver_return": "{'actions': None, 'truncate_at': 'lift'}"
+    }
+  ],
+  "color_check": {
+    "error": "KeyError: 'image'",
+    "rows": []
+  }
+}

@@ -857,10 +857,12 @@ at the end of §5 verbatim as given:
         \rightarrow \text{Gated Memory} \rightarrow \text{Attention Retrieval} }
 ```
 
-Residual gap: that change accounts for roughly `+89` bytes, so about `360` bytes of
-the original delta remain unexplained. The notebook's section structure is complete,
-but the possibility of one further missing line is **not** ruled out; anything else the
-buffer still holds should be pasted in.
+Residual gap `[closed 2026-09-23 by learner review]`: that change accounts for
+roughly `+89` bytes, so about `360` bytes of the original delta are not explained by
+arithmetic. The learner has reviewed the committed notebook and confirmed its content
+is complete, so those bytes are **not** treated as a missing line and this is not an
+open item. The incident record above is kept deliberately as a failure mode worth not
+repeating, and the rule below stands.
 
 **Rule recorded for future notebook work: re-read `mtime` immediately before writing,
 and never whole-file-rewrite a notebook that may be open in an editor.** Editing

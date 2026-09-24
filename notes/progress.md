@@ -817,7 +817,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
 | 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
-| 3.8 multimodal policy transition | **In progress** — split across four notebooks now that `scripts/mml_contract.py` holds the contract as a single source: `3.8a_contract.ipynb` (14 cells, 3.8.1-3.8.2), `3.8b_observability.ipynb` (10, 3.8.3), `3.8c_language.ipynb` (21, 3.8.4.1-3.8.4.5), `3.8d_conditioning_tests.ipynb` (11, 3.8.4.6); all executed, 0 errors; `3.8_multimodal_policy.ipynb` is now a one-cell index. Done: input contract, time alignment, observability, task condition vs language, the corrected leakage map, the three-rung counterfactual ladder (T1 correct / T2 shuffled word order / T3 contradictory bag), the permutation-invariance prediction, the `t=0` restricted probe, and the 55.91% task-conditioned headroom (99.54% gripper). Remaining: 3.8.4.7 VLA interface, 3.8.5 minimal fusion model, 3.8.6 ablation and evaluation |
+| 3.8 multimodal policy transition | **In progress** — data/contract/module layer done as four notebooks (`3.8a_contract` 14 cells, `3.8b_observability` 10, `3.8c_language` 21, `3.8d_conditioning_tests` 11) over the single-source `scripts/mml_contract.py`, file `3.8_multimodal_policy.ipynb` now an index. Model layer: `scripts/mml_policy.py` plus `3.8e_fusion_model.ipynb` (18 cells, 3.8.5: Encoder + concat Fusion + action head, 528,800 params, action side still 3.7's contract) and `3.8f_ablation.ipynb` (21 cells, 3.8.6: six arms, one per cell). Headline results: capacity-matched `Delta_vision = +0.014489` (image carries object position, which `proprio` excludes); `E3a` vs `E2` `-0.005833` as the wiring control predicted; `E3c` vs `E3b` `-0.002892`, indistinguishable; T2 at float32 rounding on every language arm; and the `t=0` probe scoring 50.0% without language against the proven 50% bound and 100.0% with it. Remaining: 3.8.7 VLA interface, a multi-seed sweep to put error bars on the arm ranking, and closed-loop evaluation |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
@@ -827,6 +827,92 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — 3.8.5 / 3.8.6: the fusion model, and an ablation whose capacity control changed the answer
+
+Three new pieces: `scripts/mml_policy.py` (dataset, model, training loop, metrics),
+`notebooks/3.8e_fusion_model.ipynb` (3.8.5, 18 cells) and `notebooks/3.8f_ablation.ipynb`
+(3.8.6, 21 cells, one arm per cell).
+
+**The model (3.8.5).** Encoder + concat fusion + action head, 528,800 parameters with all four
+modalities: `image -> small CNN -> 256`, `proprio -> MLP -> 128`, `goal -> MLP -> 32`,
+`language -> Embedding + masked mean pool -> 32`, `concat 448 -> 512 -> 256 -> 64`,
+`view(B, 8, 8)`. The action side is byte-for-byte 3.7's contract, so any difference measured
+here is attributable to the input modalities.
+
+Two deviations from the learner's proposed V1, each with a hard reason:
+
+- **A from-scratch CNN instead of a pretrained ResNet18.** `~/.cache/torch/hub/checkpoints/`
+  does not exist, so pretrained weights require a network download and this session's network
+  failed repeatedly — a first model that cannot be reproduced offline is not a first model.
+  The learner's own argument against a pretrained *text* encoder (tokenizer, pretrained
+  distribution, frozen-versus-finetune) applies verbatim to a pretrained *image* encoder. And
+  11M parameters against 509 training samples, with residual and BatchNorm conventions the
+  learner cannot yet explain, contradicts the stated goal of a mini-VLA they fully understand.
+- **Token embedding + masked mean pool instead of a one-hot task id.** A one-hot has **no word
+  order**, so 3.8.4.6's test T2 is undefined and the three-rung ladder collapses to two. With
+  two tasks L0 and L1 are informationally equivalent (3.8.4.4), so the substitution costs
+  nothing and keeps the code path a pretrained encoder will use in 3.8.7.
+
+Also corrected in passing: the images are `[3,128,128]`, not 224; and the multi-task data
+already exists — 3.8.5 was not waiting on it.
+
+**The ablation (3.8.6).** Six arms on one split, one normalisation, one init seed and 150
+epochs, differing only in the modality switches:
+
+| arm | inputs | params | val chunk | val h=0 | gripper sign |
+|---|---|---|---|---|---|
+| E1a | `p+g` | 250,176 | 0.097776 | 0.075149 | 93.0% |
+| E1b | `p+g`, hidden 1139 | 511,635 | 0.101571 | 0.072430 | 99.2% |
+| E2 (A) | `I+p+g` | 511,712 | 0.087082 | 0.055287 | 99.2% |
+| E3a | `I+p+g+l` | 528,800 | 0.081249 | 0.057698 | 99.2% |
+| E3b (L0) | `I+p+task-ID` | 511,648 | 0.036968 | 0.025324 | 99.2% |
+| E3c (L1) | `I+p+l` | 512,288 | 0.034077 | 0.022164 | 99.2% |
+
+(mean-action baseline on the same val split: 0.597227)
+
+1. **The capacity control changed the answer.** `E1a/E2 = 2.045`, so the unmatched
+   `Delta_vision` is uninterpretable. Matched it is `+0.014489` against the unmatched
+   `+0.010694` — matching made the effect *larger*, because widening the state-only control
+   made it slightly worse while the image arm stayed put. The image's contribution is real,
+   and the mechanism is the deployability table: **`proprio` excludes `obj_pose`, so the image
+   is the only source of object position.**
+2. **E3a vs E2 = -0.005833**, the expected direction for a wiring control: `H(l | g) = 0`
+   exactly, so adding the instruction cannot add information.
+3. **E3c vs E3b = -0.002892.** 3.8.4.4 predicts `C <= B` (L0 ceilings L1), so C slightly better
+   is in the expected direction; at ~8% relative, on one seed and 128 validation samples, it is
+   not evidence. The honest statement is "indistinguishable, consistent with information
+   equivalence".
+4. **T2 sits at float32 rounding on every language arm** (`4.8e-08` for E3a, `3.1e-08` for E3c,
+   against `eps = 1.19e-07`), with `T2/T3 ~ 1e-07`. The permutation-invariance prediction of
+   3.8.4.6 now holds on a real model.
+5. **E3b's three zeros are by design, not a bug.** `language_mode="task_id"` reads
+   `task_index` and never touches `language_ids`, so shuffling, contradicting or dropping the
+   token input changes nothing. This is direct evidence that the mode switch works as
+   intended, and it is why T2 is undefined for the L0 arm.
+6. **The restricted probe supplies the one clean language result.** E4a proves, without
+   training, that a proprio-only function must return the same output for both tasks at `t=0`
+   and can therefore match the gripper sign for at most one of them (`a_0` gripper is `+1.0`
+   for all five PickCube episodes and `-1.0` for all five PushCube episodes). E4b confirms it:
+   the no-language probe scores **50.0%** on train, exactly the proven bound, while the
+   language probe scores **100.0%**.
+
+**Recorded boundaries.** The probe deliberately removes `image`, so it answers "can language be
+used", not "was language used in this policy". It has 8 training and 2 validation samples, so
+its training number is a capacity claim and its validation number is not evidence. `best_val`
+is selected on the validation set and is therefore optimistically biased. And on this pool the
+offline metrics cannot separate "read the language" from "copied the task out of the state" —
+the pre-registered negative result of 3.8.4.6.
+
+**Process.** The 3.8.6 notebook was first built and executed in one foreground call with the
+training loop's progress silenced, which looked like a hang and was aborted. That produced
+`## Execution Discipline` in `AGENTS.md` and `scripts/run_notebook_observable.py`, which
+executes cell by cell, prints a heartbeat plus each cell's stream output, and saves after every
+cell. Two further mistakes were caught by the discipline itself: the split seed was conflated
+with the init seed (moving the held-out episode from 4 to 2, caught by an assertion), and the
+run progress was hidden behind an unbuffered `grep`.
+
+Durable conclusions recorded in `notes/concepts.md` under "Ablation Discipline".
 
 ### 2026-09-24 — 3.8 split into four notebooks, with the contract extracted to a module
 

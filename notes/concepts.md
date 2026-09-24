@@ -1023,6 +1023,41 @@ while PickCube held it open at 0.0400. Judging whether memory is *necessary*
 therefore has to be scoped both to the frame and to the temporal receptive field of
 the policy being tested.
 
+## Ablation Discipline
+
+An ablation arm is only interpretable if everything except the variable under test is held
+fixed. Four things break that, and all four were hit in this repository before being fixed.
+
+- **Match capacity, or you are measuring capacity.** Adding a modality adds parameters. In
+  lesson 3.8.6 the state-only arm had 250,176 parameters against the image arm's 511,712 —
+  a factor of **2.045**. Any "the image helped" conclusion from that pair is uninterpretable.
+  The fix is a parameter-matched control (here `fusion_hidden = 1139` giving 511,635, a
+  difference of 77), reported **alongside** the unmatched one. The two versions can disagree,
+  and here they did: the unmatched gain was `+0.010694` and the matched gain `+0.014489` —
+  matching made the apparent effect *larger*, because the widened state-only control got
+  slightly worse while the image arm stayed put. **Report both numbers; the matched one is the
+  claim.**
+- **`best_val` is selected on the validation set, so it is optimistically biased.** Choosing
+  the checkpoint by the same split you then report means the number is partly fitted to that
+  split. With 128 validation samples and one seed per arm, differences of a few percent are
+  not evidence. Say so before interpreting any ranking.
+- **Distinguish the seeds.** A *split* seed fixes which episodes are held out; an *init* seed
+  fixes weight initialisation and batch order. They are different knobs. Conflating them here
+  silently moved the held-out episode from 4 to 2 (`default_rng(0).permutation(5)[0] == 2`
+  against `default_rng(42).permutation(5)[0] == 4`), which made the run incomparable with the
+  previous lesson and was caught only by an assertion. Keep them as named constants and assert
+  the split identity explicitly.
+- **Report the parameter count next to every arm.** It is what makes the capacity question
+  answerable at a glance, and it is the first thing a reader needs.
+
+**Two different comparisons, two different meanings.** An arm pair that differs only by an
+input that is *not independent* cannot differ at all, and running it is a **wiring control**,
+not an experiment. Here `H(l | g) = 0` exactly — the instruction is a deterministic function of
+`task_goal` on this pool — so `image+proprio+goal+language` and `image+proprio+goal` are
+provably identical in expectation, and a difference would mean the implementation is wrong.
+Registering such a pair as a control, and saying in advance what its result must be, is worth
+more than another arm.
+
 ## Task World Model
 
 The world model to build first is **task-level, not pixel-level**:

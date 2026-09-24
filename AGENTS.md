@@ -215,6 +215,10 @@ hang, and a hang costs a round trip, an abort, and often unsaved work.
 - **Persist partial results.** Write artifacts (metrics, checkpoints, logs) as each step
   completes, not only at the end. A run that writes once at the very end loses everything
   when it is interrupted.
+- **Do not hide a progressive log behind a buffering filter.** `cmd 2>&1 | grep -v noise`
+  block-buffers, so the terminal shows nothing until the command exits — the same "looks
+  hung" failure in a new disguise. Use `grep --line-buffered` (or `stdbuf -oL`), or let the
+  runner write to stderr without a pipe.
 
 ### Run long work in the background
 

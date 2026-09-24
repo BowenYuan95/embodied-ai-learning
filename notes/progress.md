@@ -807,7 +807,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.4 distribution shift | held-out states reach `\|z\| = 13.21`; raw actions out of bounds on only `0.2%` of held-out states but `99.5%` of closed-loop steps are clipped |
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
-| 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 24 cells (15 md / 9 code, all executed, 0 errors). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
+| 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
 | 3.8 multimodal policy transition | not started |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
@@ -818,6 +818,75 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — 3.7 follow-ups: the H question is closed, and the K-clipping mechanism is measured
+
+Two gaps left open by the 3.7 build were closed in the same notebook, which grew from 24 to
+31 cells (20 markdown, 11 code, all executed, zero errors).
+
+**S9 — an H sweep with the sample set held fixed.** The natural suspicion after "useful
+horizon = 0" was that H=8 was simply the wrong H. The sweep holds sample set and split
+constant by making each H's target the *prefix* of the H=8 target (`Y[:, :H, :]`), so only
+the target length varies. `H=1` reproduces B1 to the last digit (`0.575204`, asserted),
+which validates the two independent code paths.
+
+| H | params | overall val MSE | mse @ h=0 | S_0 | useful horizon |
+|---|---|---|---|---|---|
+| 1 | 23,048 | 0.575204 | 0.575204 | -0.0315 | 0 |
+| 2 | 24,080 | 0.602890 | 0.638865 | -0.1456 | 0 |
+| 4 | 26,144 | 0.613326 | 0.451150 | **+0.1910** | **1** |
+| 8 | 30,272 | 0.853913 | 0.571828 | -0.0254 | 0 |
+
+`S_0` is **non-monotonic**: -0.03, -0.15, +0.19, -0.03. A systematic H effect would vary
+smoothly; a swing of 0.34 between adjacent H values, on one trajectory and 69 heavily
+overlapping validation samples, is what noise looks like. The single positive cell is one of
+a 4x8 grid of comparisons, and H=4 is negative at h=1,2,3, so selecting on that cell would be
+a multiple-comparison error. `overall val MSE` does rise monotonically with H, but that is
+the target getting harder, not the model getting worse. Conclusion: the h=0 failure is
+**H-independent** (H=1 fails too), so **H comes off the suspect list** and the constraint
+stays where every other 3.7 result put it — data coverage.
+
+**S10 — the K-clipping hypothesis was tested, refuted, and replaced by a measured
+mechanism.** The hypothesis on record was that larger K executes later, less extreme chunk
+elements. It is half-testable offline and it fails: the model's predicted magnitude
+*increases* with h (0.826 -> 0.954 in normalised space) and so does the target
+(0.589 -> 0.699). The same measurement exposed a separate model defect: `pred/target` is
+about **1.4 at every h**, i.e. the policy systematically amplifies action magnitude by
+roughly 40%, consistent with its heavy clipping.
+
+The rollout call was then instrumented to record, per executed step, its chunk position and
+the magnitude of the raw pre-clip command:
+
+| K | success | clip frac | mean abs(a) | mean abs(da) | replans |
+|---|---|---|---|---|---|
+| 1 | 0/5 | 0.947 | **3.224** | **1.5156** | 200 |
+| 2 | 0/5 | 0.370 | 1.365 | 0.4109 | 100 |
+| 4 | 0/5 | 0.200 | 0.799 | 0.0346 | 50 |
+| 8 | 0/5 | 0.121 | 0.786 | 0.0367 | 25 |
+
+Reference values already in the repository (2.9): expert `mean abs(da) = 0.0077`, random
+fixture `0.6723`. Broken down by `(K, h)`, with identical weights and identical chunk
+positions: at `K=8` the magnitude is flat across h (h=0 0.78, h=7 0.77), but **the same
+h=0** costs 3.22 at K=1 against 0.78 at K=8 — a factor of four, with only the visited state
+distribution changing.
+
+Reading: extreme actions are a property of the **closed-loop state distribution that K=1
+generates**, not of the chunk position. At K=1 the executed actions jump by `1.5156`
+step-to-step, worse than the random-action fixture, so the robot is driven off-distribution
+and even its h=0 prediction extrapolates badly. At K>=4 the within-chunk actions are
+internally consistent (`0.035`, the same order as the expert) and the states evolve calmly.
+What chunking actually buys in this measurement is **temporal consistency**, not a longer
+look-ahead — one of the standard arguments for chunking, obtained here by accident, while
+success remains 0/5.
+
+Recorded boundary: K=1 and K=8 visit different states, so the factor of four mixes
+state-distribution shift with within-chunk consistency. Separating them needs a different
+measurement — comparing within-chunk prediction smoothness against the jitter of re-planned
+h=0 predictions on the recorded state sequence — which this lesson does not run.
+
+Two self-check questions (9 and 10) were added for these sections and are marked pending in
+the answers section. `notes/concepts.md` gained both conclusions under `## Action Chunking`.
+No gate item moved; the closed-loop result is unchanged at 0/5 for every K.
 
 ### 2026-09-24 — Notebook 3.7 (Action Chunking) built out and executed to a negative result
 

@@ -733,6 +733,43 @@ observation defect in Lesson 2: **compatible-looking shapes mean nothing complai
 `T x T` score matrix, a `[B, B, 8]` loss, and a `(74, 8)` action array can all be wrong
 while every shape check passes.
 
+### The `H` question, and why a non-monotonic `S_0` is noise
+
+Sweeping `H` is only interpretable if the sample set is held fixed, because the sample count
+depends on `H` (`sum(T_i) - N(H-1)`); letting each `H` use its own natural sample set
+confounds "`H`" with "number of samples". Making each `H`'s target the prefix of the largest
+`H`'s target (`Y[:, :H, :]`) keeps every start identical and varies only the target length —
+and `H=1` must then reproduce the single-step baseline exactly, a free consistency check.
+
+Measured here, `S_0` was **non-monotonic** in `H` (-0.03, -0.15, +0.19, -0.03) while
+`overall val MSE` rose monotonically (0.575 to 0.854, which is the target getting harder,
+not the model getting worse). A systematic `H` effect would vary smoothly; a 0.34 swing
+between adjacent values, on one trajectory and 69 heavily overlapping validation samples, is
+what noise looks like — and taking the one positive cell of a `4 x 8` grid is a
+multiple-comparison error. The `h=0` failure is therefore **H-independent** (it fails at
+`H=1` too), so `H` is not the binding constraint.
+
+### What `K` changes: temporal consistency, not horizon
+
+The intuitive reason "larger `K` clips less" is that larger `K` executes later, milder chunk
+elements. That is refutable offline and it is false: predicted magnitude *increases* with
+`h`. The online measurement gives the real mechanism. At `K=8` the executed magnitude is flat
+across chunk positions (h=0 0.78, h=7 0.77), but the **same position `h=0`** costs 3.22 at
+`K=1` against 0.78 at `K=8` — 4x, with identical weights, identical chunk position, and the
+same checkpoint, so only the visited state distribution differs.
+
+Extreme actions therefore belong to the **closed-loop state distribution that frequent
+re-planning generates**, not to any chunk position. The associated quantity is step-to-step
+action change: `mean abs(da)` is `1.5156` at `K=1` (worse than a random-action fixture's
+`0.6723`) and `0.035` at `K>=4` (the expert measures `0.0077`). Chunking's contribution here
+is **within-chunk temporal consistency and a calmer state distribution**, not look-ahead.
+Caveat: the two are confounded, because `K=1` and `K=8` visit different states.
+
+One separate model defect surfaced in the same measurement: the policy's predicted magnitude
+is about **1.4x the target's at every horizon**, i.e. it amplifies actions by roughly 40%.
+That is a property of the model rather than of `K`, and it is consistent with the saturation
+seen in closed loop.
+
 ### Measured outcome on this repository's data
 
 With five expert episodes (`T = 74/74/50/86/76`), `H = 8`, and one held-out episode: the

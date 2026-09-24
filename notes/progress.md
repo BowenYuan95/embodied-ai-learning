@@ -817,7 +817,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
 | 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
-| 3.8 multimodal policy transition | **In progress** — 3.8.1 (input contract) and 3.8.2 (time alignment) are in `notebooks/3.8_multimodal_policy.ipynb` (11 cells, 4/4 code executed, 0 errors). Contract: `image [3,128,128]` + `language_ids` + `proprio [25]` + `task_goal [3]` -> `action_chunk [8,8]`, action side frozen at 3.7's shape. 3.8.3-3.8.7 remain |
+| 3.8 multimodal policy transition | **In progress** — `notebooks/3.8_multimodal_policy.ipynb`, 32 cells (21 md / 11 code, all executed, 0 errors). 3.8.1 (input contract), 3.8.2 (time alignment), 3.8.3 (observability), 3.8.4.1–3.8.4.5 (task condition vs language, why the pool does not force language, what data would, language representation levels L0/L1/L2 with ablation arms A/B/C, and the two kinds of grounding with a per-channel leakage map) are done. Contract: `image [3,128,128]` + `language_ids [8]` + `proprio [25]` + `task_goal [3]` -> `action_chunk [8,8]`. 3.8.4.6 (shortcut counterfactuals), 3.8.4.7 (VLA interface), 3.8.5–3.8.6 remain |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
@@ -827,6 +827,130 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — Correction: 3.8.4.5's leakage map was wrong in all three rows
+
+The leakage map published earlier the same day was re-measured and **every row was wrong**.
+The notebook now carries the corrected cells; the earlier entry below is superseded on this point.
+
+Three distinct errors, one per row of the table:
+
+1. **`image`: reported 50.9% (chance), actually 88.7%.** The code tested only one label
+   orientation (`bi > thr`). PushCube is the **brighter** class (124.091 versus 123.521), so the
+   orientation that was tested is false by construction and maxed out near chance. Testing both
+   orientations gives **88.7%** over the window and **100% at `t=0`**.
+2. **`proprio`: reported "not separable" (range overlap 0.0217), actually 98.0%.** Range overlap
+   was used as the separability criterion. It is a worst-case range statistic, not a
+   distribution statistic: `qpos[7]` overlaps 0.0217 and is 98.0% separable, `qvel[8]` overlaps
+   0.3045 and is also 98.0%, `tcp_pose[4]` overlaps 0.0005 and lands at 81.4%. A leave-one-
+   episode-out linear probe on the 25-dim `proprio` names the task at **96.3%**.
+3. **`task_goal`: correct** (10/10).
+
+A third defect was found while fixing the second: the replacement `dim_acc` initially used the
+data values as thresholds and rounded them, which puts the boundary sample on a knife edge. It
+read `tcp_pose[4]` as 51.2% instead of 81.4% and made `qpos[7]` alternate between 50% and 100%
+by timestep. Thresholds are now placed strictly between neighbouring distinct values.
+
+**The corrected picture, and why it matters more than the numbers.**
+
+- The leak is **temporal** for `proprio`: at `t=0` the five episodes of each task sit on an
+  **identical** state (`max |pick - push| = 0.000000`, because both were collected from the same
+  seeds) and `qpos[7]` is exactly at chance; from `t=1` it is 100% separable, because PushCube's
+  first action already drove the gripper to 0.0000 while PickCube held it at 0.0400.
+- The leak is **not** temporal for `image`. At `t=0` the proprioception is identical but the
+  **images differ** (max pixel difference 205), because the camera sees the **goal marker** and
+  the two tasks place it differently. Mean brightness separates at 100% at every timestep.
+- Therefore the "clean single frame" idea from 3.8.4.5 — evaluate at `t=0`, drop `task_goal`,
+  and the instruction becomes the only readable channel — **holds for `proprio` and fails for
+  `image`**. On this pool **no frame and no field subset makes the instruction necessary for an
+  image-conditioned policy.** That is a data-design limitation (P1), not something 3.8.6 can
+  repair.
+- Consequence for 3.8.4.6: it must **pre-register a negative result** for the main arm C
+  experiment, and test whether language *can* be used on a deliberately restricted probe —
+  `t=0`, `proprio` only, no `image`, no `task_goal` — where the instruction is the only input
+  that names the task.
+- Note the distinction: the image's 88.7% is a **confound, not a representation**. It is a
+  global brightness offset of 0.57/255, while 3.8.3 measured the goal's actual image signal at
+  `corr = -0.295` and cross-episode pixel change equal to within-episode 25-step change (1.0x).
+  Enough for a shortcut; no usable object information.
+
+Durable conclusions recorded in `notes/concepts.md` under "Measuring Whether One Signal Reveals
+Another". This is the seventh appearance of the repository's recurring failure mode — **a legal
+shape, symbol, or statistic is not correct semantics** — and the first time it appeared in the
+*measurement of a measurement*.
+
+### 2026-09-24 — 3.8.4: the pool *permits* language but does not *force* it, and the fix is one field
+
+`notebooks/3.8_multimodal_policy.ipynb` grew to 32 cells (21 markdown, 11 code, all executed,
+zero errors) with five subsections that turn "add language to the policy" from an aspiration
+into a measurement.
+
+**3.8.4.1 — task condition versus language.** `task_goal` is a *condition* (given, no evidence
+source), the instruction is *language* (must be read). Measured goal spans: PickCube
+x/y/z = 0.1522 / 0.1192 / 0.2452 m, PushCube = 0.1507 / 0.1325 / **0.0000** m. Per-task
+conditional entropy `H(ℓ) = 0` — inside one task the instruction is constant — and pooled
+`H(ℓ) = 1.000` bit. So the instruction carries **exactly one bit**, and that bit is task
+identity.
+
+**3.8.4.2 — why this pool cannot teach language.** With `task_goal` present, the goal field
+already determines the task, so the instruction is redundant: a model that ignores it pays
+nothing. Distinguished "cannot learn" from "cannot be measured" — the latter is the operative
+statement here.
+
+**3.8.4.3 — the two tasks are observationally similar but actionally different, and
+`task_goal` gives the task away.** Image cross-task change 6.81 versus within-task 5.54
+(1.23x); action cross-task 1.6300 versus within-task 0.5185 (3.14x, early window 19.93x).
+`goal_z > 0.02` separates **10/10** episodes. Conclusion: the confound is real and must be
+made an explicit ablation arm rather than silently removed.
+
+**3.8.4.4 — language representation levels.** L0 task-ID one-hot, L1 learned token embedding,
+L2 pretrained encoder (deferred to 3.8.7). With only two tasks, L0 and L1 are
+**informationally equivalent** (a bijection exists between them), so L0 is a **ceiling** on
+L1: arm B (`image+proprio+task-ID`) caps arm C (`image+proprio+language`), and C > B would
+indicate a broken experiment.
+
+**3.8.4.5 — two kinds of grounding, and a per-channel leakage map.** Referential grounding
+(word to pixels) is **untestable by construction**: neither instruction contains a colour or
+spatial word (measured `content ∩ REFERENTIAL = ∅` — the whole vocabulary is
+`{pick, up, the, cube, push, to, goal}`), and each scene holds one object. Only action-mode
+grounding (verb to behaviour pattern) is testable. Mechanistically, the concatenation fusion
+planned for 3.8.5 **cannot** do referential grounding: a per-episode language constant never
+indexes into visual features; binding a word to a region needs cross-attention with `Q` from
+language and `K`, `V` from vision.
+
+Two measurements corrected earlier narration:
+
+- **The task difference is localised in the gripper.** Per-channel cross-task versus
+  within-task `|Δa|`: the seven arm channels sit at **0.72–1.12x**, the gripper at **7.00x**.
+  3.8.4.3's "actions differ by 3.14x" is numerically right but gripper-driven; the corrected
+  statement is "the two tasks differ in the gripper's behaviour while the arm trajectories are
+  statistically similar". A `<补正 3.8.4.5>` note was added at 3.8.4.3 stating this, and the
+  correction narrows what the language test can prove — a model can pass via
+  "instruction to gripper schedule" alone.
+- **The per-frame leakage map.** `image` trivial statistics are at chance (best single
+  brightness threshold 365/717 = **50.9%**); `proprio` finger joints pick `[0.0183, 0.0400]`
+  versus push `[0.0000, 0.0400]` **overlap by 0.0217**, so no single frame separates them;
+  only `task_goal` leaks the task completely. Therefore **dropping `task_goal` from the
+  language-conditioned arms is sufficient** to make the instruction the only per-frame channel
+  that distinguishes the tasks. This supersedes the vague "let language carry the goal" remedy
+  from 3.8.4.3 with a single concrete field.
+
+  > **Superseded — see the correction entry above.** Every row of this leakage map is wrong:
+  > `image` is 88.7% (not 50.9%), `proprio` is 98.0% from `t=1` (not "not separable"), and
+  > "dropping `task_goal` is sufficient" does not hold for an image-conditioned policy.
+
+**Recorded boundary.** The gripper's difference is **sequence-level**: PushCube drives it fully
+closed (0.0000) while PickCube stops at the cube width (0.0183). Invisible to a single-frame
+policy, available to anything with history. So "3.8 does not need memory" is scoped to
+*single-frame plus mode selection*; recognising a *procedural* state such as "the gripper has
+closed completely" makes history necessary, which is the entry point to P1 task-state
+estimation.
+
+Durable conclusions recorded in `notes/concepts.md` under "Language Grounding".
+
+Recurring failure mode this section exercised for the sixth time: **a legal shape or symbol is
+not correct semantics** — here, "3.8 has a `language_ids` field" was not the same as "3.8 has
+a language-conditioned experiment".
 
 ### 2026-09-24 — Second task collected, and the state schema now travels with the data
 

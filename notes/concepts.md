@@ -894,6 +894,100 @@ its own data: two 8-dimensional action vectors that look compatible are not (see
 pretraining possible in systems such as RDT-1B. Concatenating heterogeneous robot
 data without semantic alignment hides embodiment semantics rather than pooling it.
 
+## Measuring Whether One Signal Reveals Another
+
+Answering "can the task be read from this input?" is a measurement, and three
+mistakes make the measurement wrong while still producing a confident number.
+All three were made in this repository before being caught.
+
+- **Range overlap is not separability.** Overlap is a *worst-case range* statistic;
+  separability is a *distribution* statistic, and neither implication holds. Measured
+  on the two-task pool: `qpos[7]` overlaps by 0.0217 and is **98.0%** separable;
+  `qvel[8]` overlaps by 0.3045 and is also **98.0%**; `tcp_pose[4]` overlaps by only
+  0.0005 and lands at **81.4%**. A criterion that is sometimes right and sometimes
+  off by 47 points is worse than one that is always wrong, because you cannot tell
+  which case you are in. Delete it from the method rather than tuning it.
+- **Never use the data values themselves as thresholds.** A threshold equal to a
+  sample puts that sample on a knife edge, and rounding the data to build the
+  threshold set moves it across. Use midpoints between neighbouring distinct values.
+  Under the knife-edge version `tcp_pose[4]` reads 51.2% instead of 81.4%, and
+  `qpos[7]` alternates between 50% and 100% from one timestep to the next.
+- **Always test both label orientations.** A one-sided test (`a > t`) silently
+  assumes which class is on which side. The image brightness statistic read **50.9%**
+  one-sided and **88.7%** two-sided, purely because PushCube is the brighter class.
+
+Two further distinctions:
+
+- **A leak can be temporal.** Per-frame separability is not one number. Here
+  `proprio` is exactly at chance at `t=0` (the ten episodes of both tasks sit on an
+  identical state, differences of 0.000000) and 98% from `t=1`, because the first
+  action already moved the gripper differently. Any claim about what a policy "can
+  read" has to name the frame.
+- **A leak is not a representation.** The image separates the tasks at 88.7%
+  (100% at `t=0`) from a global brightness offset of 0.57/255, while the goal's
+  actual image signal is `corr = -0.295` and the cross-episode pixel change equals
+  the within-episode 25-step change (1.0x). The statistic is enough to let a model
+  take a shortcut and carries no usable object information. Measuring that a signal
+  is *present* is not measuring that it is *usable*, and a confound can be strong
+  without being a feature.
+
+## Language Grounding
+
+"Grounding" names two different problems with different difficulty, and conflating
+them makes an experiment look stronger than it is:
+
+| | **Referential grounding** | **Action-mode grounding** |
+|---|---|---|
+| What the word picks out | a region or attribute **in the image** | a **behaviour pattern** |
+| Example | "red cube" ↔ those pixels; "left" ↔ that side | "pick" ↔ grasp and carry; "push" ↔ slide along the table |
+| Is there a pixel it corresponds to | yes, it can be localised | **no** — no region *is* "pick" |
+| Mechanism required | vision-language binding (cross-attention, or pretrained alignment) | language used as a **mode selector** |
+
+Four durable consequences:
+
+- **Concatenation fusion cannot perform referential grounding, by construction.**
+  A concatenated language embedding is a per-episode constant; it never indexes
+  into the visual features, so it cannot say "attend to *that* region". Binding a
+  word to a region requires the language to modulate which visual features are
+  read, i.e. cross-attention with `Q` from language and `K`, `V` from vision. An
+  MLP over `concat(visual, state, language)` can only learn "language vector →
+  which mode", which is action-mode grounding and nothing more.
+- **Referential grounding is a property of the data, not of the model.** It needs
+  scene variation — multiple objects, varied attributes, words that single one
+  out. With one object per scene and no colour or spatial words in the
+  instruction, referential grounding is **untestable by construction**; no
+  architecture change makes it testable. Check the vocabulary and the scene
+  composition before claiming to test it.
+- **A task difference can be localised in a single action channel.** Before
+  describing two tasks as "actionally different" in general, decompose the
+  cross-task versus within-task deviation **per channel**. In this repository's
+  two-task pool the seven arm channels sit at 0.72–1.12x (statistically
+  indistinguishable) while the **gripper channel is 7.00x**. The aggregate ratio
+  was real but its location was not where the aggregate implied, and the
+  correction narrows what the language test can prove.
+- **A multi-task pool permits language use; it does not force it.** Test every
+  input channel for separability of the task before concluding that the data demands
+  the instruction, and see "Measuring Whether One Signal Reveals Another" for how to
+  do that test. On this repository's two-task pool **every** contract channel leaks
+  the task: `task_goal` separates 10/10 episodes, `image` mean brightness separates
+  88.7% of frames (100% at `t=0`, because the camera sees the goal marker), and
+  `proprio` separates 98% from `t=1` (`qpos[7]` is the gripper). No frame and no
+  field subset makes the instruction necessary for an image-conditioned policy, so
+  the language test had to be pre-registered as a negative result and moved to a
+  deliberately restricted probe: `t=0`, `proprio` only, no image and no `task_goal`.
+
+The general rule is the counterfactual: **a model cannot learn to use a signal the
+data never forces it to use.** Shuffle the instruction, substitute a wrong one,
+and drop it entirely; if the action does not change, no grounding happened,
+whatever the loss curve says.
+
+A **temporal** leak is a distinct category from a per-frame one, and the two live in
+the same dataset. Here `proprio` is exactly at chance at `t=0` and 98% separable
+from `t=1`, because PushCube's first action already drove the gripper to 0.0000
+while PickCube held it open at 0.0400. Judging whether memory is *necessary*
+therefore has to be scoped both to the frame and to the temporal receptive field of
+the policy being tested.
+
 ## Task World Model
 
 The world model to build first is **task-level, not pixel-level**:

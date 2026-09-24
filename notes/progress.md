@@ -817,7 +817,7 @@ Lesson 2 result rather than a toy example. The evidence already in the repositor
 | 3.5 DAgger | not started; the natural follow-up once 3.4 is understood |
 | 3.6 single-frame versus history policy | not started; this is the clean way to separate "not enough data" from "not enough model" |
 | 3.7 action chunking | **Complete `[verified]`** — `notebooks/3.7_Action_Chunk.ipynb`, 31 cells (20 md / 11 code, all executed, 0 errors), extended with an H sweep (S9) and a K-mechanism measurement (S10). Module structure with H=8, K sweep, controlled single-step baselines B1/B2, per-horizon diagnostic. Offline result is **negative**: useful horizon 0, and chunked@h=0 (0.5718) equals B1 (0.5752) while only the larger B2 (0.4279) beats the mean-action baseline (0.5576). Closed loop **0/5 success at every K**, but clipping falls monotonically 0.947 -> 0.121 as K goes 1 -> 8 |
-| 3.8 multimodal policy transition | **In progress** — `notebooks/3.8_multimodal_policy.ipynb`, 37 cells (24 md / 13 code, all executed, 0 errors). Done: 3.8.1 contract, 3.8.2 time alignment, 3.8.3 observability, 3.8.4.1-3.8.4.5 task condition vs language and the corrected leakage map, 3.8.4.6 the three-rung counterfactual ladder (T1 correct / T2 shuffled word order / T3 contradictory bag), the permutation-invariance prediction, the `t=0` restricted probe, and the 55.91% task-conditioned headroom (99.54% gripper). Remaining: 3.8.4.7 VLA interface, 3.8.5 minimal fusion model, 3.8.6 ablation and evaluation |
+| 3.8 multimodal policy transition | **In progress** — split across four notebooks now that `scripts/mml_contract.py` holds the contract as a single source: `3.8a_contract.ipynb` (14 cells, 3.8.1-3.8.2), `3.8b_observability.ipynb` (10, 3.8.3), `3.8c_language.ipynb` (21, 3.8.4.1-3.8.4.5), `3.8d_conditioning_tests.ipynb` (11, 3.8.4.6); all executed, 0 errors; `3.8_multimodal_policy.ipynb` is now a one-cell index. Done: input contract, time alignment, observability, task condition vs language, the corrected leakage map, the three-rung counterfactual ladder (T1 correct / T2 shuffled word order / T3 contradictory bag), the permutation-invariance prediction, the `t=0` restricted probe, and the 55.91% task-conditioned headroom (99.54% gripper). Remaining: 3.8.4.7 VLA interface, 3.8.5 minimal fusion model, 3.8.6 ablation and evaluation |
 | 3.9 expert data collection | partially informed by 2.9 (single scripted planner recipe, object/goal diversity but no behavioural diversity) |
 | 3.10 trajectory to task structure | not started; the interface toward task representation and procedural memory |
 
@@ -827,6 +827,57 @@ ratio is `1.04×` and therefore demonstrates nothing; re-pointing it at the expe
 episodes (`8.8×`–`13.7×`) is the first concrete Lesson 3 edit.
 
 ## Session Log
+
+### 2026-09-24 — 3.8 split into four notebooks, with the contract extracted to a module
+
+`notebooks/3.8_multimodal_policy.ipynb` had reached 37 cells / 73k characters of source / 296 KB
+with outputs. Size was not the real problem: **six downstream code cells each opened with the same
+`assert ... in globals()` prerequisite guard**, which is the objective symptom of one notebook
+standing in for six.
+
+**Split by the question each part answers:**
+
+| File | Content | Question | Cells |
+|---|---|---|---|
+| `notebooks/3.8a_contract.ipynb` | 3.8.1 contract + 3.8.2 alignment | what the data is | 14 (10 md / 4 code) |
+| `notebooks/3.8b_observability.ipynb` | 3.8.3 observability | what the image does and does not carry | 10 (7 / 3) |
+| `notebooks/3.8c_language.ipynb` | 3.8.4.1-3.8.4.5 | what this pool does and does not force | 21 (13 / 8) |
+| `notebooks/3.8d_conditioning_tests.ipynb` | 3.8.4.6 | how to test whether a model uses language | 11 (7 / 4) |
+
+The old path is now a one-cell index page, so existing references still land somewhere sensible.
+All four parts execute with zero errors.
+
+**The contract became a module.** `scripts/mml_contract.py` now holds the loader, the tokenizer,
+`build_sample`, and the counterfactual instruction modes. Splitting without this would have meant
+four copies of ~10k characters of contract code — exactly the "duplicated semantics drift apart"
+failure this repository keeps recording. The module was verified **bit-for-bit** against the
+notebook's own numbers before any notebook was rewritten: `VOCAB`, `T_TXT`, both `LANGUAGE_IDS`,
+both field schemas, episode lengths, `T_common = 50`, and all five sample shapes. `PROJECT_ROOT`
+now resolves from `__file__` rather than from the working directory.
+
+**Tidy-up carried out at the same time:**
+
+- Every part has its own `## 运行说明`, `## 小结`, and `## 自检`; the six guards are gone.
+- The two oversized cells were split: the leakage cell (8885 chars, four unrelated jobs) became
+  three, and the 3.8.4.6 fixture cell (4868) became two.
+- `<补正 3.8.4.3>` no longer lives inside 3.8.4.5's reading section — it now sits with 3.8.4.3,
+  the section it corrects.
+- Naming: `pick` / `push` are episode lists throughout; task-level dicts are
+  `datasets["PickCube-v1"]` / `pick_ds` / `push_ds`. No name means two things inside one notebook.
+- Two silently dropped items were restored after the equivalence check caught them: the
+  `excluded from the input: ... 14 dims` line and the per-field shape assertions, including
+  **"action_chunk is byte-for-byte the same contract as 3.7"** — the statement the whole
+  modality-attribution argument rests on.
+
+**Equivalence evidence.** Every code cell's stdout from the pre-split notebook was compared against
+the four new notebooks: **236 lines, zero real differences**; the only six absent lines are
+CUDA/GLFW environment noise. Cell by cell, all 37 old cells are accounted for — 31 verbatim, the
+two intentionally split cells verified piece by piece, and the six rewritten ones (header, run
+notes, contract cell, sample cell, summary, self-check answers) replaced deliberately.
+
+**Note on the older entries below.** The 3.8.1 through 3.8.4.6 write-ups reference
+`notebooks/3.8_multimodal_policy.ipynb` and its cell counts; those describe the state at the time
+and have not been rewritten. The content now lives in the four files above.
 
 ### 2026-09-24 — 3.8.4.6: input is not use is not understanding, and the ladder has to be built as three operations
 
